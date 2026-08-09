@@ -240,8 +240,9 @@ class Player(Node):
             f'done: {n} frames in {wall:.1f}s (lag_frames={lag_frames}); '
             f'holding {self.hold}s')
         if self.manifest_path:
-            Path(self.manifest_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(self.manifest_path, 'w') as f:
+            manifest = Path(self.manifest_path).expanduser()
+            manifest.parent.mkdir(parents=True, exist_ok=True)
+            with open(manifest, 'w') as f:
                 json.dump({
                     'gt': str(self.gt), 'dataset': str(self.dataset),
                     'topics': {k: TOPIC_NAMES[k] for k in self.topics},
