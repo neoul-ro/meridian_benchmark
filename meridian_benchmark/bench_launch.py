@@ -6,7 +6,10 @@ Every launch exposes the same arguments:
   out:=<run output dir>              (recorder + play manifest)
   input:=true|false     start the player (false = inputs come from other
                         modules in a combo run, per the plan)
-  module:=true|false    start the module under test
+  module:=true|false    also start the upstream stub of the module under
+                        test (default false: launch only the harness and
+                        run the module separately — the player waits for
+                        its subscription before playback starts)
   rate / start_frame / end_frame / pose_source   forwarded to the player
 
 The player's exit shuts the whole launch down (recorder flushes per row).
@@ -31,7 +34,7 @@ DEFAULT_GT = os.path.expanduser(
 
 
 def bench_launch(name, player_topics, expected_subs, record, payload,
-                 module_pkg=None, module_exe=None, module_default='true',
+                 module_pkg=None, module_exe=None, module_default='false',
                  notes=()):
     dataset = LaunchConfiguration('dataset')
     gt = LaunchConfiguration('gt')

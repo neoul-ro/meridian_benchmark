@@ -45,12 +45,15 @@ Identity 모델(색상 = prefab 타입, 인스턴스 = 3D voxel 겹침 분해; �
 빌드/소싱 후 (`colcon build --packages-select meridian_benchmark && source install/setup.bash`):
 
 ```bash
-# 단일 실행 — player가 GT 입력을 발행하고 모듈 출력·수신시각을 out에 기록,
-# 재생이 끝나면 launch 전체가 자동 종료된다
+# 터미널 1 — 하네스(player+recorder)만 뜬다. player는 테스트할 모듈이
+# 구독을 붙일 때까지 발행을 미루고, 재생이 끝나면 launch 전체가 자동 종료된다
 ros2 launch meridian_benchmark seg.launch.py \
   dataset:=~/yun/meridian_ws/datasets/uHumans2/apartment_scene/uHumans2_apartment_s1_00h \
   gt:=~/yun/meridian_ws/datasets/gt/uHumans2_apartment_s1_00h \
   out:=~/yun/meridian_ws/bench_runs/seg/run0     # end_frame:=50 으로 부분 재생
+
+# 터미널 2 — 테스트할 모듈을 직접 실행 (붙는 순간 재생 시작)
+ros2 run meridian_seg seg_node                   # 예: upstream 스텁
 
 # 채점
 bench-score --module seg --gt ~/yun/meridian_ws/datasets/gt/uHumans2_apartment_s1_00h \
@@ -64,8 +67,8 @@ bench-run --module seg --runs 5 \
 ```
 
 launch 공통 인자: `dataset` `gt` `out` `input`(false = player 생략, 조합 실행용)
-`module`(false = 대상 모듈 생략) `rate` `start_frame` `end_frame` `pose_source`(base|cam)
-`pose_type`(plain=PoseStamped 기본 | cov=PoseWithCovarianceStamped).
+`module`(**기본 false** — true면 upstream 스텁 노드도 같이 띄움) `rate` `start_frame`
+`end_frame` `pose_source`(base|cam) `pose_type`(plain=PoseStamped 기본 | cov).
 
 | launch | player 주입 | 기록(채점) | 상태 |
 |---|---|---|---|
