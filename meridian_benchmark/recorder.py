@@ -70,6 +70,11 @@ class Recorder(Node):
         record = [r for r in record if r]
         payload = {p for p in payload if p}
 
+        if (self.out / 'arrivals.csv').exists():
+            raise RuntimeError(
+                f'stale run dir: {self.out} already holds a recording. '
+                f'Scoring would mix runs - pick a fresh out dir '
+                f'(the launch default is timestamped).')
         self.out.mkdir(parents=True, exist_ok=True)
         self._arr_f = open(self.out / 'arrivals.csv', 'w', newline='')
         self._arr = csv.writer(self._arr_f)

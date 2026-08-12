@@ -46,20 +46,21 @@ Identity 모델(색상 = prefab 타입, 인스턴스 = 3D voxel 겹침 분해; �
 
 ```bash
 # 터미널 1 — 하네스(player+recorder)만 뜬다. player는 테스트할 모듈이
-# 구독을 붙일 때까지 발행을 미루고, 재생이 끝나면 launch 전체가 자동 종료된다
+# 구독을 붙일 때까지 발행을 미루고, 재생이 끝나면 launch 전체가 자동 종료된다.
+# out 기본값은 bench_runs/<module>/<날짜_시간> — 이미 기록이 있는 디렉터리를
+# 지정하면 recorder가 에러로 거부한다 (이전 실행과 섞인 채점 방지)
 ros2 launch meridian_benchmark seg.launch.py \
   dataset:=~/yun/meridian_ws/datasets/uHumans2/apartment_scene/uHumans2_apartment_s1_00h \
-  gt:=~/yun/meridian_ws/datasets/gt/uHumans2_apartment_s1_00h \
-  out:=~/yun/meridian_ws/bench_runs/seg/run0     # end_frame:=50 으로 부분 재생
+  gt:=~/yun/meridian_ws/datasets/gt/uHumans2_apartment_s1_00h  # end_frame:=50 부분 재생
 
 # 터미널 2 — 테스트할 모듈을 직접 실행 (붙는 순간 재생 시작)
 ros2 run meridian_seg seg_node                   # 예: upstream 스텁
 
-# 채점
+# 채점 (run 디렉터리는 터미널 1 launch가 찍어준 timestamped 경로)
 bench-score --module seg --gt ~/yun/meridian_ws/datasets/gt/uHumans2_apartment_s1_00h \
-  --run ~/yun/meridian_ws/bench_runs/seg/run0
+  --run ~/yun/meridian_ws/bench_runs/seg/20260812_150000
 
-# 5회 실행 + 중앙값 리포트 (plan #4)
+# 5회 실행 + 중앙값 리포트 (plan #4; --out 아래에 <날짜_시간>/run_00..04 생성)
 bench-run --module seg --runs 5 \
   --dataset ~/yun/meridian_ws/datasets/uHumans2/apartment_scene/uHumans2_apartment_s1_00h \
   --gt ~/yun/meridian_ws/datasets/gt/uHumans2_apartment_s1_00h \
@@ -73,8 +74,7 @@ launch 공통 인자: `dataset` `gt` `out` `input`(false = player 생략, 조합
 | launch | player 주입 | 기록(채점) | 상태 |
 |---|---|---|---|
 | `seg` | rgb | segment_image → mask IoU, flowtime | 동작 |
-| `slam` | rgb, depth, info | /pose (PoseStamped) → ATE/RPE | 하네스만 (rgb-d SLAM 실행체 없음, 모듈은 별도 기동) |
-| `clip` | rgb, seg | embedding set → flowtime | 동작 |
+| `clip` | rgb, seg | embedding set → flowtime, frames_dropped | 동작² |
 | `geobuilder` | depth, info, seg, pose | instance_3d_set → voxel IoU, outlier, flowtime | 동작¹ |
 | `geotracker` | instance3d, embedding | tracklet_set 수신 기록 | 주입 동작, 채점 TBD |
 | `associator` / `updater` / `graphcore` | — | 수신 기록만 | placeholder (plan TBD) |
@@ -82,6 +82,12 @@ launch 공통 인자: `dataset` `gt` `out` `input`(false = player 생략, 조합
 ¹ `/pose`는 `world_T_base`, 타입은 **PoseStamped** (SLAM 실제 출력 기준). 현재 geobuilder는
 `PoseWithCovarianceStamped`를 구독하고 extrinsic 합성도 없으므로, upstream이 맞춰지기 전까지
 geobuilder 단독 벤치는 `pose_type:=cov pose_source:=cam`으로 돌린다.
+
+² clip 입력 구독은 **의도적으로 BEST_EFFORT** — 밀리면 drop하는 게 노드 설계라
+`frames_dropped`가 flowtime과 함께 봐야 하는 일급 지표다. `module:=true`는
+`clip_inference_node`를 띄우며, TensorRT engine 파일이 저장소에 있어야 기동한다
+(모델 담당자가 git 추가 예정). slam 벤치는 제거됨 — upstream이 FAST-LIVO(3D LiDAR+IMU)로
+전환되어 rgb-d 주입으로는 측정이 성립하지 않음 (docs/BENCHMARK_PLAN.md 참고).
 
 조합 실행 예 (plan의 `input` 파라미터): `seg.launch.py` + `clip.launch.py input:=false`
 — clip의 seg 입력은 GT가 아닌 seg 모듈 출력을 쓴다.

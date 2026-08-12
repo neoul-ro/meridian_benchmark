@@ -41,7 +41,9 @@ def main():
                     help='extra key:=value forwarded to ros2 launch')
     a = ap.parse_args()
 
-    out = Path(a.out).expanduser()
+    # timestamped session dir: re-running with the same --out never
+    # collides with (or silently re-scores) an earlier session
+    out = Path(a.out).expanduser() / time.strftime('%Y%m%d_%H%M%S')
     out.mkdir(parents=True, exist_ok=True)
     scores = []
     for k in range(a.runs):

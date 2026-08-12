@@ -3,7 +3,7 @@
 데이터: uHumans2 apartment `00h` (1779 frames, 12.9 Hz), 경로 `~/yun/meridian_ws/datasets/uHumans2`.
 GT identity는 `seg_cam` 색상 × 3D 인스턴스 분해로 유도 — **색상은 인스턴스가 아니라 prefab/재질 타입**이라
 (동일 소품 여러 개가 한 색, 거울/유리 반사도 같은 색) 같은 색 관측을 3D 겹침으로 클러스터링해 인스턴스를 분리한다.
-pose GT: **`/pose`는 `world_T_base`** (odom 200 Hz를 카메라 stamp로 보간) — slam ATE/RPE도 base 기준.
+pose GT: **`/pose`는 `world_T_base`** (odom 200 Hz를 카메라 stamp로 보간).
 GT geometry 내부 계산(역투영·cloud)은 여기에 카메라 장착 변환(`tf_static`)을 곱한 `world_T_camera`를 쓰며,
 `gt_poses.csv`에 base/cam 두 세트가 다 있다.
 (위키 Data Types의 `/pose` 계약도 `world_T_base`로 갱신됨 — 26/08/08. geobuilder는 `base_T_camera`
@@ -15,7 +15,6 @@ extrinsic을 별도로 받아 합성.
 각각 모듈들은 다음처럼 실행됨.  
 ```
 ros2 launch meridian_benchmark seg.launch.py
-ros2 launch meridian_benchmark slam.launch.py
 ros2 launch meridian_benchmark clip.launch.py
 ros2 launch meridian_benchmark geobuilder.launch.py
 ros2 launch meridian_benchmark geotracker.launch.py
@@ -28,8 +27,7 @@ ros2 launch meridian_benchmark graphcore.launch.py
 | 모듈 | 주입 입력 | 출력 (채점 대상) | 채점 기준 GT | Metric | 비고 |
 |---|---|---|---|---|---|
 | `seg` | rgb | segment_image | GT segment_image | mask IoU | |
-| `slam` | rgb, depth | pose | GT pose | ATE, RPE | |
-| `clip` | rgb, segment_image | instance_embedding_set | — (시간만 측정) | flowtime | |
+| `clip` | rgb, segment_image | instance_embedding_set | — (시간만 측정) | flowtime, frames_dropped | 입력 구독이 의도적으로 BEST_EFFORT → drop이 정상 지표 |
 | `geobuilder` | depth, info, segment_image, pose | instance_3d_set | GT 객체 cloud | flowtime, voxel IoU, outlier 비율 | |
 | `geotracker` | instance_3d_set, instance_embedding_set | tracklet_set | GT 객체 cloud (겹침으로 귀속) | tracklet purity, fragmentation | **TBD** |
 | `associator` | (geotracker 출력) + graph_snapshot | association_decision_set | GT graph 상태 | MATCH precision/recall, false-merge/split | **TBD** |
@@ -37,6 +35,10 @@ ros2 launch meridian_benchmark graphcore.launch.py
 | `graphcore` | object_update_set | graph_snapshot, update_event | 자기 입력과 대조 (GT 불필요) | 불변식 통과 (version 단조, id 유일성, commit 일치) | **TBD** |
 
 앞쪽(frontend) 모듈부터 진행한다. **TBD** 3개(geotracker+backend)는 frontend 평가가 자리잡은 뒤 확정. (일단 placeholder만))
+
+**slam 벤치는 제거** (26/08/12): upstream이 FAST-LIVO(3D LiDAR+IMU 기반)로 전환되어 rgb-d 주입으로는
+측정 자체가 성립하지 않고, 굳이 필요 없다고 판단. upstream 참고 사항 — FAST-LIVO의 `/pose`는
+발행 시점 `now()` 스탬프이고 `world_T_imu`라 위키 계약(`world_T_base`, capture-time stamp)과 다름.
 
 모듈 조합 검증:
 

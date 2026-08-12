@@ -4,8 +4,7 @@ Reads a recorder run dir (arrivals.csv, payloads, play_manifest.json) plus
 the GT dir and prints/writes the module's metrics from the plan table:
 
   seg         mask IoU (+ flowtime, drops)
-  slam        ATE, RPE (vs gt_poses.csv base)
-  clip        flowtime
+  clip        flowtime, drops
   geobuilder  flowtime, voxel IoU, outlier ratio
   geotracker/associator/updater/graphcore   TBD (arrival counts only)
 
@@ -105,38 +104,6 @@ def score_seg(gt, run, iou_thresh=0.0):
         'flowtime': flowtime(arrivals, OUTPUTS['seg'], INPUTS['seg'])}
 
 
-def score_slam(gt, run, tol_s=0.1, rpe_delta_s=1.0):
-    pose_csv = Path(run) / 'pose.csv'
-    if not pose_csv.exists():
-        return {'error': 'no pose.csv recorded', 'n_matched': 0}
-    est = np.genfromtxt(pose_csv, delimiter=',', names=True)
-    est = np.atleast_1d(est)
-    gt_p = np.genfromtxt(Path(gt) / 'gt_poses.csv', delimiter=',',
-                         names=True)
-    gs = gt_p['stamp_ns'].astype(np.int64)
-    es = est['stamp_ns'].astype(np.int64)
-    j = np.searchsorted(gs, es)
-    j = np.clip(j, 1, len(gs) - 1)
-    j = np.where(np.abs(gs[j] - es) < np.abs(gs[j - 1] - es), j, j - 1)
-    ok = np.abs(gs[j] - es) <= tol_s * 1e9
-    if ok.sum() < 3:
-        return {'error': f'only {int(ok.sum())} poses matched GT stamps',
-                'n_matched': int(ok.sum())}
-    j = j[ok]
-    t_est = np.stack([est['tx'], est['ty'], est['tz']], 1)[ok]
-    q_est = np.stack([est[k] for k in ('qx', 'qy', 'qz', 'qw')], 1)[ok]
-    t_gt = np.stack([gt_p[f'base_t{a}'] for a in 'xyz'], 1)[j]
-    q_gt = np.stack([gt_p[f'base_q{a}'] for a in 'xyzw'], 1)[j]
-    dt = np.diff(gs[j]).mean() / 1e9 if len(j) > 1 else 1.0
-    delta = max(1, int(round(rpe_delta_s / dt)))
-    return {'ate': M.ate_rmse(t_est, t_gt),
-            'rpe_1frame': M.rpe(t_est, q_est, t_gt, q_gt, delta=1),
-            f'rpe_{rpe_delta_s:.0f}s': M.rpe(t_est, q_est, t_gt, q_gt,
-                                             delta=delta),
-            'n_matched': int(ok.sum()), 'n_est': len(est),
-            'coverage': float(ok.sum() / len(gs))}
-
-
 def score_clip(gt, run):
     arrivals, counts = load_arrivals(run)
     manifest = load_manifest(run)
@@ -198,7 +165,7 @@ def score_tbd(module):
     return score
 
 
-SCORERS = {'seg': score_seg, 'slam': score_slam, 'clip': score_clip,
+SCORERS = {'seg': score_seg, 'clip': score_clip,
            'geobuilder': score_geobuilder,
            'geotracker': score_tbd('geotracker'),
            'associator': score_tbd('associator'),

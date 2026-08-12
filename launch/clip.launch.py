@@ -9,4 +9,4 @@ def generate_launch_description():
         record=['/camera/rgb=image', '/segment_image=image',
                 '/instance_embedding_set=embedding_set'],
         payload=['/instance_embedding_set'],
-        module_pkg='meridian_clip', module_exe='clip_node')
+        module_pkg='meridian_clip', module_exe='clip_inference_node')

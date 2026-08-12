@@ -16,6 +16,7 @@ The player's exit shuts the whole launch down (recorder flushes per row).
 """
 
 import os
+import time
 
 from launch import LaunchDescription
 from launch.actions import (DeclareLaunchArgument, EmitEvent, LogInfo,
@@ -43,9 +44,11 @@ def bench_launch(name, player_topics, expected_subs, record, payload,
     actions = [
         DeclareLaunchArgument('dataset', default_value=DEFAULT_DATASET),
         DeclareLaunchArgument('gt', default_value=DEFAULT_GT),
+        # timestamped so repeated runs never share a dir; the recorder
+        # refuses to overwrite an existing recording
         DeclareLaunchArgument('out', default_value=os.path.join(
             os.path.expanduser('~/yun/meridian_ws/bench_runs'), name,
-            'last')),
+            time.strftime('%Y%m%d_%H%M%S'))),
         DeclareLaunchArgument('input', default_value='true'),
         DeclareLaunchArgument('module', default_value=module_default),
         DeclareLaunchArgument('rate', default_value='1.0'),

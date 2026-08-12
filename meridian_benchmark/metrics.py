@@ -1,84 +1,10 @@
 """Message-agnostic metric primitives for the benchmark scorer.
 
 All functions take plain numpy arrays; message/file parsing lives in the
-scorer. Conventions: poses are (t[N,3], q[N,4] xyzw) world_T_x, clouds are
-float32 [N,3] world-frame metres.
+scorer. Convention: clouds are float32 [N,3] world-frame metres.
 """
 
 import numpy as np
-
-
-# ---------------- pose (slam) ----------------
-
-def umeyama_alignment(src, dst, with_scale=False):
-    """Rigid (optionally Sim3) transform aligning src -> dst (both [N,3]).
-
-    Returns (s, R[3,3], t[3]) with dst ~= s * R @ src + t.
-    """
-    mu_s = src.mean(axis=0)
-    mu_d = dst.mean(axis=0)
-    xs = src - mu_s
-    xd = dst - mu_d
-    cov = xd.T @ xs / len(src)
-    U, S, Vt = np.linalg.svd(cov)
-    sgn = np.sign(np.linalg.det(U @ Vt))
-    D = np.diag([1.0, 1.0, sgn])
-    R = U @ D @ Vt
-    if with_scale:
-        var_s = (xs ** 2).sum() / len(src)
-        s = float(np.trace(np.diag(S) @ D) / var_s)
-    else:
-        s = 1.0
-    t = mu_d - s * R @ mu_s
-    return s, R, t
-
-
-def ate_rmse(t_est, t_gt, align=True):
-    """Absolute trajectory error after (optional) SE3 Umeyama alignment.
-
-    Returns dict with rmse/mean/median/max in metres.
-    """
-    est = np.asarray(t_est, dtype=np.float64)
-    gt = np.asarray(t_gt, dtype=np.float64)
-    if align:
-        s, R, t = umeyama_alignment(est, gt)
-        est = est @ (s * R).T + t
-    err = np.linalg.norm(est - gt, axis=1)
-    return {'rmse': float(np.sqrt((err ** 2).mean())),
-            'mean': float(err.mean()), 'median': float(np.median(err)),
-            'max': float(err.max()), 'n': len(err)}
-
-
-def _pose_mats(t, q):
-    from scipy.spatial.transform import Rotation
-    T = np.tile(np.eye(4), (len(t), 1, 1))
-    T[:, :3, :3] = Rotation.from_quat(q).as_matrix()
-    T[:, :3, 3] = t
-    return T
-
-
-def rpe(t_est, q_est, t_gt, q_gt, delta=1):
-    """Relative pose error over pose pairs `delta` frames apart.
-
-    Returns dict: trans rmse/mean (m) and rot rmse/mean (deg).
-    """
-    from scipy.spatial.transform import Rotation
-    Te = _pose_mats(np.asarray(t_est, float), np.asarray(q_est, float))
-    Tg = _pose_mats(np.asarray(t_gt, float), np.asarray(q_gt, float))
-    n = len(Te) - delta
-    if n <= 0:
-        return {'trans_rmse': 0.0, 'trans_mean': 0.0,
-                'rot_rmse_deg': 0.0, 'rot_mean_deg': 0.0, 'n': 0}
-    de = np.linalg.inv(Te[:-delta]) @ Te[delta:]
-    dg = np.linalg.inv(Tg[:-delta]) @ Tg[delta:]
-    err = np.linalg.inv(dg) @ de
-    et = np.linalg.norm(err[:, :3, 3], axis=1)
-    er = np.degrees(np.abs(Rotation.from_matrix(err[:, :3, :3])
-                           .magnitude()))
-    return {'trans_rmse': float(np.sqrt((et ** 2).mean())),
-            'trans_mean': float(et.mean()),
-            'rot_rmse_deg': float(np.sqrt((er ** 2).mean())),
-            'rot_mean_deg': float(er.mean()), 'n': int(n)}
 
 
 # ---------------- masks (seg) ----------------
