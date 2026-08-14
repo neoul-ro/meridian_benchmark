@@ -94,6 +94,11 @@ def score_seg(gt, run, iou_thresh=0.0):
         gt_img = cv2.imread(
             str(Path(gt) / 'gt_seg' / f'{idx[ns]:06d}.png'),
             cv2.IMREAD_UNCHANGED)
+        if pred.shape != gt_img.shape:
+            # e.g. FastSAM seg publishes labels in proto space (input/2.5);
+            # nearest-neighbor upscale keeps label ids intact.
+            pred = cv2.resize(pred, (gt_img.shape[1], gt_img.shape[0]),
+                              interpolation=cv2.INTER_NEAREST)
         per.append(M.frame_mask_iou(pred, gt_img, iou_thresh))
     n_frames = _played(manifest, arrivals, INPUTS['seg'])
     return {

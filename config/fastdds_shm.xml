@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Large-image transport profile for the benchmark.
+
+     The default FastDDS SHM segment (512 KiB) is smaller than one 720x480
+     rgb8 frame (~1 MiB), so those messages fall back to loopback UDP where
+     BEST_EFFORT subscribers (e.g. sam seg_node) lose ~half the frames to
+     fragment drops under the default 212 KiB kernel socket buffer.
+     A 16 MiB segment keeps every benchmark topic on shared memory.
+
+     Apply to EVERY process in a run (player/recorder AND the module):
+
+         export FASTRTPS_DEFAULT_PROFILES_FILE=\
+             ~/yun/meridian_ws/src/meridian_benchmark/config/fastdds_shm.xml
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>shm_16m</transport_id>
+      <type>SHM</type>
+      <segment_size>16777216</segment_size>
+    </transport_descriptor>
+    <transport_descriptor>
+      <transport_id>udp_default</transport_id>
+      <type>UDPv4</type>
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="bench_big_shm" is_default_profile="true">
+    <rtps>
+      <userTransports>
+        <transport_id>shm_16m</transport_id>
+        <transport_id>udp_default</transport_id>
+      </userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+    </rtps>
+  </participant>
+</profiles>

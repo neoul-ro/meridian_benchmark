@@ -36,6 +36,7 @@ DEFAULT_GT = os.path.expanduser(
 
 def bench_launch(name, player_topics, expected_subs, record, payload,
                  module_pkg=None, module_exe=None, module_default='false',
+                 pose_source_default='base', pose_type_default='plain',
                  notes=()):
     dataset = LaunchConfiguration('dataset')
     gt = LaunchConfiguration('gt')
@@ -54,8 +55,8 @@ def bench_launch(name, player_topics, expected_subs, record, payload,
         DeclareLaunchArgument('rate', default_value='1.0'),
         DeclareLaunchArgument('start_frame', default_value='0'),
         DeclareLaunchArgument('end_frame', default_value='0'),
-        DeclareLaunchArgument('pose_source', default_value='base'),
-        DeclareLaunchArgument('pose_type', default_value='plain'),
+        DeclareLaunchArgument('pose_source', default_value=pose_source_default),
+        DeclareLaunchArgument('pose_type', default_value=pose_type_default),
     ]
     for msg in notes:
         actions.append(LogInfo(msg=msg))

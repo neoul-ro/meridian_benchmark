@@ -53,6 +53,13 @@ class Player(Node):
         self.hold = float(p('hold', 3.0).value)
         self.world_frame = p('world_frame', 'map').value
         self.manifest_path = p('manifest', '').value
+        # Head start for latest-value topics (info/pose) over the stamp-joined
+        # image topics. Publish order alone is not enough: a single-threaded
+        # downstream executor drains callbacks that arrived in the same wait
+        # cycle in subscription-creation order, and e.g. the geobuilder
+        # creates its pose subscription last, so a same-cycle pose loses the
+        # race and the frame falls back to an identity pose.
+        self.pose_lead = float(p('pose_lead_s', 0.005).value)
 
         if not self.gt.is_dir():
             raise RuntimeError(f'gt dir not found: {self.gt}')
@@ -120,11 +127,19 @@ class Player(Node):
                         'D': ci['D']}
         self.cam_frame = ci['frame_id']
 
+    # Per-frame publish order. Latest-value topics (info, pose) go out before
+    # the stamp-joined image topics: the geobuilder fires its join as soon as
+    # depth+seg are cached and falls back to an identity pose if /pose for
+    # that stamp has not arrived yet.
+    PUBLISH_ORDER = ('info', 'pose', 'rgb', 'depth', 'embedding',
+                     'instance3d', 'seg')
+
     def _frame_msgs(self, i):
         ns = int(self.stamps[i])
         row = self.frames[i]
         out = []
-        for key in self.topics:
+        for key in sorted(self.topics,
+                          key=self.PUBLISH_ORDER.index):
             if key == 'rgb':
                 img = cv2.imread(str(self.dataset / row['rgb']))
                 out.append((key, make_image(
@@ -230,7 +245,12 @@ class Player(Node):
                 time.sleep(target - now)
             elif now - target > 0.04:
                 lag_frames += 1
+            lead_done = False
             for key, m in msgs:
+                if (not lead_done and self.pose_lead > 0
+                        and key not in ('info', 'pose')):
+                    time.sleep(self.pose_lead)
+                    lead_done = True
                 self.pubs[key].publish(m)
             if (i + 1 - self.start_frame) % 200 == 0:
                 self.get_logger().info(

@@ -24,6 +24,7 @@ import cv2
 import numpy as np
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 
 from .ros_io import (DEFAULT_QOS, SNAPSHOT_QOS, cloud_to_xyz,
                      image_to_array, ns_from_stamp, sanitize_topic)
@@ -87,18 +88,30 @@ class Recorder(Node):
         self.subs = []
         for entry in record:
             topic, _, kind = entry.partition('=')
+            # "topic=kind:be" subscribes BEST_EFFORT — required when the
+            # publisher is BEST_EFFORT (e.g. sam seg_node's /segment_image),
+            # since a RELIABLE subscription would never match it.
+            kind, _, flag = kind.partition(':')
             if kind not in types:
                 raise RuntimeError(f'unknown/unavailable kind "{kind}" '
                                    f'for {topic} (have: {sorted(types)})')
             save = topic in payload
             if save:
                 (self.out / sanitize_topic(topic)).mkdir(exist_ok=True)
-            qos = SNAPSHOT_QOS if kind == 'snapshot' else DEFAULT_QOS
+            if kind == 'snapshot':
+                qos = SNAPSHOT_QOS
+            elif flag == 'be':
+                qos = QoSProfile(
+                    reliability=ReliabilityPolicy.BEST_EFFORT,
+                    history=HistoryPolicy.KEEP_LAST, depth=10)
+            else:
+                qos = DEFAULT_QOS
             self.subs.append(self.create_subscription(
                 types[kind], topic,
                 self._make_cb(topic, kind, save), qos))
             self.get_logger().info(
-                f'recording {topic} [{kind}]{" +payload" if save else ""}')
+                f'recording {topic} [{kind}]'
+                f'{" +payload" if save else ""}{" (best-effort)" if flag else ""}')
 
     def _make_cb(self, topic, kind, save):
         def cb(msg):
