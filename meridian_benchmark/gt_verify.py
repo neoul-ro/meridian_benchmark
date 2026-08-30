@@ -191,21 +191,38 @@ def check_cross_frame(seq, gt, rep, pairs, min_gap=60, min_pts=300,
     cands = [(oid, obs[0], obs[-1]) for oid, obs in sorted(by_obj.items())
              if obs[-1][0] - obs[0][0] >= min_gap]
     step = max(1, len(cands) // pairs)
+    clouds = np.load(gt['dir'] / 'gt_object_clouds.npz')
+    near_m = float(gt['config']['config'].get('near_m', np.inf))
+    cam = gt['t_wc']
     results = []
     for oid, (fa, sa), (fb, sb) in cands[::step][:pairs]:
         pa = _seg_points(gt, fa, sa)
         pb = _seg_points(gt, fb, sb)
+        # identity test: each observation (its near part, the only part
+        # that carried identity) must lie on the object's accumulated cloud.
+        # Two views of one wide/flat object can be disjoint halves, so the
+        # observation-vs-observation distance is reported only as context.
+        tree = cKDTree(clouds[f'obj_{oid:05d}'])
+        obs_med = []
+        for f, p in ((fa, pa), (fb, pb)):
+            q = p[np.linalg.norm(p - cam[f], axis=1) <= near_m]
+            obs_med.append(float(np.median(tree.query(q, k=1)[0]))
+                           if len(q) else float('nan'))
         small, big = (pa, pb) if len(pa) <= len(pb) else (pb, pa)
         dist, _ = cKDTree(big).query(small, k=1)
         results.append({'gt_object_id': oid, 'frame_a': fa, 'frame_b': fb,
-                        'gap': fb - fa, 'median_nn_m': float(np.median(dist)),
+                        'gap': fb - fa,
+                        'median_nn_m': float(np.nanmax(obs_med)),
+                        'obs_to_object_m': obs_med,
+                        'pair_median_nn_m': float(np.median(dist)),
                         'p90_nn_m': float(np.percentile(dist, 90))})
-    med = float(np.median([r['median_nn_m'] for r in results])) if results \
-        else float('nan')
-    ok = bool(results) and med < 0.05
+    meds = [r['median_nn_m'] for r in results]
+    med = float(np.median(meds)) if results else float('nan')
+    worst = float(np.max(meds)) if results else float('nan')
+    ok = bool(results) and med < 0.05 and worst < 0.10
     rep['D_cross_frame'] = {'pass': ok, 'objects_checked': len(results),
                             'compact_objects': len(compact),
-                            'median_of_medians_m': med,
+                            'median_of_medians_m': med, 'worst_median_m': worst,
                             'per_object': results}
     return ok
 

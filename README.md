@@ -30,11 +30,49 @@ python3 -m meridian_benchmark.gt_build \
   --dataset ~/yun/meridian_ws/datasets/uHumans2/apartment_scene/uHumans2_apartment_s1_00h \
   --out ~/yun/meridian_ws/datasets/gt
 
-# 검증 (A 구조 / B 일관성 / C 자기 재투영 / D 프레임 간 3D 일관성 / E 인스턴스 분리)
+# 검증 (A 구조 / B 일관성 / C 자기 재투영 / D 관측↔객체 cloud 일관성(8 m 이내 점) / E 인스턴스 분리)
 python3 -m meridian_benchmark.gt_verify \
   --dataset ~/yun/meridian_ws/datasets/uHumans2/apartment_scene/uHumans2_apartment_s1_00h \
   --gt ~/yun/meridian_ws/datasets/gt/uHumans2_apartment_s1_00h
+
+# DA용 GT tracklet (시퀀스당 1회; <gt>/gt_tracklets.h5 + gt_tracklets_index.csv)
+#   tracklet = 객체의 연속 가시 구간 (관측 공백 ≤5프레임은 연결), 시야에서 사라지는 프레임에 발행,
+#   점군 = 그 구간에 카메라가 본 표면만 2cm map-frame 복셀(셀 중심), semantics = upstream clip 노드
+#   파이프라인(ViT-B/32 mask_weighted_value)을 관측마다 오프라인 실행해 평균. meridian_clip 모델 필요.
+source install/setup.bash   # rclpy + meridian_clip
+python3 -m meridian_benchmark.gt_tracklets \
+  --gt ~/yun/meridian_ws/datasets/gt/uHumans2_apartment_s1_00h \
+  --dataset ~/yun/meridian_ws/datasets/uHumans2/apartment_scene/uHumans2_apartment_s1_00h
+#   --gap 5 --voxel 0.02 --backend tensorrt|torch --no-embed
+# 파일 계층은 meridian_msgs/Tracklet 필드 그대로 (tracklets/<id>/…), wire 외 정보는 _metadata/ (voxel별 카메라
+# RGB는 _metadata/point_rgb), 파일 수준 index/ 는 columnar 조회용. 16px 미만 관측뿐인 tracklet은 semantics가
+# 빈 배열 (n_obs_embedded=0). 관측 시점 카메라에서 5m 초과인 점은 버림 (--max-range 5; 개수는
+# _metadata/n_points_far). 복셀 extent가 x/y/z 중 한 축이라도 4cm 이하(복셀 1~2층)인 tracklet은 제외
+# (--min-extent 0.04; 시퀀스당 절반 이상). 모든 점이 천장(GT 지도 z-히스토그램 최상단 밀집 슬래브, 시퀀스 상수)
+# 아래 30cm 안에 있는 tracklet(조명·스프링클러)도 제외 (--ceiling-margin 0.3; 단층 office 기준, apartment는 최상층
+# 천장만 잡힘). 카메라 거리(프레임별 최소의 min, 프레임별 평균의 mean)는
+# _metadata/dist_min_m, dist_mean_m 및 index/csv 컬럼. --recolor 는 기존 h5에 point_rgb만 다시 계산,
+# --filter 는 기존 h5에 --min-extent/--ceiling-margin 만 적용(id 재부여; 거리 필터는 재빌드 필요).
+
+# tracklet 시각화 (office 00h): 큰 top-down 이미지 — 지도 전체 회색(천장은 z 필터로 제거), 해당 tracklet은
+# 카메라 RGB 색으로 칠하고 빨간 상자로 표시. --dataset 을 주면 지도가 없는 빈 구석에 대표 프레임(구간 내
+# 최다 픽셀 관측)의 rgb 이미지와 class(seg_cam 색상) 이미지를 마스크 윤곽·상자와 함께 삽입.
+# <gt>/viz/tracklet/tracklet_<id>_obj<gt_object_id>.png
+python3 -m meridian_benchmark.gt_viz --gt ~/yun/meridian_ws/datasets/gt/uHumans2_office_s1_00h --view tracklet \
+  --dataset ~/yun/meridian_ws/datasets/uHumans2/office_scene/uHumans2_office_s1_00h
+#   --range A B (tracklet id), --zmax (기본: 천장 슬래브 30cm 아래), --px-cm (기본 1 또는 2)
+# 발행 토픽/타입은 미정 — 현재는 h5 저장까지. VS Code에서는 H5Web 확장으로 열어봄.
 ```
+
+알려진 identity 한계: 서로 **실제로 접촉하는** 동일 prefab 객체들은 하나의 GT 인스턴스로 병합된다
+(예: office 회의실 의자 6개 = oid 하나). 붙어 있는 같은 색 표면 사이에는 경계 증거가 데이터에 없어
+원리적으로 분리 불가 — GT identity는 "객체 군집" 단위로 일관되므로 채점은 성립한다. 화면에서만 겹쳐
+보이고 3D에서는 떨어진 복사본(복도의 팔걸이의자 열 등)은 26/08/30부터 2D blob을 3D 연결성으로 다시
+나눠(`--split-cell 0.10`, 셀 = 깊이별 샘플 간격×1.5) 별개 인스턴스가 된다. identity는 **8 m 이내 관측만**
+으로 결정한다(`--near 8`): 멀리서 본 관측은 복사본들을 한 덩어리로 잇기 때문. 8 m 밖의 점은 identity 결정에는
+안 쓰고, `gt_seg`/`segments.csv`에서는 **같은 색 객체 cloud 중 10 cm 이내로 가장 가까운 객체에 점 단위로 귀속**시킨다
+(`--far-label 0.10`; 의자 열을 멀리서 봐도 의자별로 라벨, 근거리에서 한 번도 안 본 표면만 배경). `segments.csv`의
+`is_far`=1 은 8 m 이내 점이 없는 관측. `gt_object_clouds`는 8 m 이내에서 본 표면만 담는다.
 
 Identity 모델(색상 = prefab 타입, 인스턴스 = 3D voxel 겹침 분해; 거울/유리 유령 인스턴스 포함)과
 산출물별 상세는 `meridian_benchmark/gt_build.py` docstring 참고. 시퀀스별 빌드 설정·통계는 각 GT 디렉터리의
@@ -77,7 +115,8 @@ launch 공통 인자: `dataset` `gt` `out` `input`(false = player 생략, 조합
 | `clip` | rgb, seg | embedding set → flowtime, frames_dropped | 동작² |
 | `geobuilder` | depth, info, seg, pose | instance_3d_set → voxel IoU, outlier, flowtime | 동작¹ |
 | `geotracker` | instance3d, embedding | tracklet_set 수신 기록 | 주입 동작, 채점 TBD |
-| `associator` / `updater` / `graphcore` | — | 수신 기록만 | placeholder (plan TBD) |
+| `associator` | GT tracklet_set (1초 창, ~1 Hz) | decision_set·snapshot 수신 기록 | 주입 동작 (updater+graphcore 별도 기동 필요), 채점 TBD |
+| `updater` / `graphcore` | — | 수신 기록만 | placeholder (plan TBD) |
 
 ¹ `/pose`는 `world_T_base`, 타입은 **PoseStamped** (SLAM 실제 출력 기준). 현재 geobuilder는
 `PoseWithCovarianceStamped`를 구독하고 extrinsic 합성도 없으므로, upstream이 맞춰지기 전까지

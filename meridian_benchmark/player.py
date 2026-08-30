@@ -120,12 +120,13 @@ class Player(Node):
                 or 'rgb' in self.topics or 'depth' in self.topics:
             if not self.dataset.is_dir():
                 raise RuntimeError(f'dataset dir not found: {self.dataset}')
-        with open(self.dataset / 'camera_info/left_cam.yaml') as f:
-            ci = yaml.safe_load(f)
-        self.caminfo = {'frame_id': ci['frame_id'], 'width': ci['image_width'],
-                        'height': ci['image_height'], 'K': ci['K'],
-                        'D': ci['D']}
-        self.cam_frame = ci['frame_id']
+            with open(self.dataset / 'camera_info/left_cam.yaml') as f:
+                ci = yaml.safe_load(f)
+            self.caminfo = {'frame_id': ci['frame_id'],
+                            'width': ci['image_width'],
+                            'height': ci['image_height'], 'K': ci['K'],
+                            'D': ci['D']}
+            self.cam_frame = ci['frame_id']
 
     # Per-frame publish order. Latest-value topics (info, pose) go out before
     # the stamp-joined image topics: the geobuilder fires its join as soon as

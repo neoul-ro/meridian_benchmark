@@ -24,6 +24,7 @@ setup(
         'console_scripts': [
             'bench-gt-build = meridian_benchmark.gt_build:main',
             'bench-gt-verify = meridian_benchmark.gt_verify:main',
+            'bench-gt-tracklets = meridian_benchmark.gt_tracklets:main',
             'player = meridian_benchmark.player:main',
             'recorder = meridian_benchmark.recorder:main',
             'bench-score = meridian_benchmark.score:main',
