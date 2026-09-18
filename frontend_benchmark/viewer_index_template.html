@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frontend 평가 뷰어 — 시퀀스 목록</title>
+<style>
+:root {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781; --grid: #2c2c2a; --line: #383835; --warn: #ffb37a;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font-size: 14px; padding: 24px 20px 48px; }
+h1 { font-size: 18px; margin: 0 0 4px; }
+p.sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; max-width: 1180px; font-size: 13px; }
+th, td { text-align: right; padding: 9px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; }
+th:first-child, td:first-child { text-align: left; }
+tbody tr:hover { background: var(--surface); }
+a.seq { color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 1px solid var(--line); }
+a.seq:hover { border-color: var(--muted); }
+.when { color: var(--muted); font-size: 11px; display: block; font-weight: 400; }
+.badge { font-size: 11px; border-radius: 10px; padding: 1px 8px; border: 1px solid var(--line); color: var(--muted); }
+.badge.stale { color: var(--warn); border-color: var(--warn); }
+.note { color: var(--muted); font-size: 12px; margin-top: 18px; line-height: 1.7; max-width: 1100px; }
+.note code { background: var(--surface-2); padding: 0 5px; border-radius: 3px; color: var(--ink-2); }
+.empty { color: var(--warn); }
+</style>
+</head>
+<body>
+<h1>Frontend 평가 뷰어 — 시퀀스 목록</h1>
+<p class="sub" id="sub"></p>
+<div id="list"></div>
+<p class="note" id="note"></p>
+<script src="index.js"></script>
+<script>
+(() => {
+  const X = window.FB_INDEX;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const list = document.getElementById('list');
+  if (!X || !X.seqs || !X.seqs.length) {
+    document.getElementById('sub').innerHTML = '<span class="empty">index.js 를 읽지 못했습니다 — 이 폴더에서 열었는지 확인해 주세요.</span>';
+    return;
+  }
+  document.getElementById('sub').textContent = `목록 갱신 ${X.generated} · 시퀀스 ${X.seqs.length}개 · 시퀀스를 누르면 그 뷰어가 열립니다 (서버 없이 열립니다).`;
+  const keys = [];
+  for (const s of X.seqs) for (const st of (s.stats || [])) if (!keys.includes(st.key)) keys.push(st.key);
+  const labelOf = k => { for (const s of X.seqs) for (const st of (s.stats || [])) if (st.key === k) return st.label; return k; };
+  const fullOf = k => { for (const s of X.seqs) for (const st of (s.stats || [])) if (st.key === k) return st.full || st.label; return k; };
+  const valOf = (s, k) => { for (const st of (s.stats || [])) if (st.key === k) return st.value; return '–'; };
+  const badge = s => `<span class="badge ${s.stale && s.stale.state === 'stale' ? 'stale' : ''}" title="${esc((s.stale || {}).detail || '')}">` +
+    `${s.stale && s.stale.state === 'stale' ? '다시 만들 것' : s.stale && s.stale.state === 'fresh' ? '최신' : '확인 못 함'}</span>`;
+  list.innerHTML = `<table><thead><tr><th>시퀀스</th>` + keys.map(k => `<th title="${esc(fullOf(k))}">${esc(labelOf(k))}</th>`).join('') +
+    `</tr></thead><tbody>` +
+    X.seqs.map(s => `<tr><td><a class="seq" href="${esc(s.link)}">${esc(s.name || s.seq)}</a> ${badge(s)}` +
+      `<span class="when">생성 ${esc(s.generated)}${s.scored ? ' · 채점 ' + esc(s.scored) : ''}</span></td>` +
+      keys.map(k => `<td>${esc(valOf(s, k))}</td>`).join('') + `</tr>`).join('') +
+    `</tbody></table>`;
+  const stale = X.seqs.filter(s => s.stale && s.stale.state === 'stale').map(s => s.seq);
+  document.getElementById('note').innerHTML =
+    (stale.length ? `<b>${esc(stale.join(', '))}</b> 은(는) 채점이 다시 돈 뒤 뷰어를 새로 만들지 않았습니다 — <code>eval.sh viewer ${esc(stale[0])}</code><br>` : '') +
+    `기준 파일: <code>${esc(X.summary)}</code>${X.summary_exists ? '' : ' (없음 — 최신 여부를 확인하지 못했습니다)'}<br>` +
+    `${esc(X.kf_label || 'kf')} 번호는 score_*.csv 의 kf 열과 같게 0부터 셉니다. ${esc(X.frame_label || 'frame')}은 데이터셋 ${esc(X.frame_label || 'frame')} 번호입니다.`;
+})();
+</script>
+</body>
+</html>
