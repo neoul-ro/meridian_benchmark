@@ -43,7 +43,8 @@ import time
 import traceback
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent      # frontend_benchmark/ (테스트 파일은 tests/ 에 있다)
+TESTS = Path(__file__).resolve().parent            # frontend_benchmark/tests/
 FAILS = []
 PY = sys.executable
 
@@ -310,11 +311,12 @@ def test_c11_eval_test(code_dir):
 
 def test_c11_discovery(code_dir):
     """C11 run_tests.py --list — test_*.py 전부 · test_score_2d 는 자기 사례만"""
+    tests_dir = code_dir / 'tests'
     r = subprocess.run([PY, str(code_dir / 'run_tests.py'), '--list'], capture_output=True, text=True, timeout=120,
-                       env=dict(os.environ, FB_TEST_DIR=str(code_dir)))
+                       env={k: v for k, v in os.environ.items() if k != 'FB_TEST_DIR'})   # 기본값이 tests/ 인지도 같이 본다
     out = r.stdout
     print('     ' + '\n     '.join(out.strip().splitlines()[:20]))
-    want = sorted(p.name for p in code_dir.glob('test_*.py'))
+    want = sorted(p.name for p in tests_dir.glob('test_*.py'))
     listed = sorted(set(re.findall(r'(test_[A-Za-z0-9_]+\.py)', out)) & set(want))
     check('모든 test_*.py 가 목록에', listed, want)
     for n in ('test_trackeval_parity.py', 'test_gt_labels_2d.py', 'test_gt_difficulty_2d.py'):
@@ -325,7 +327,8 @@ def test_c11_discovery(code_dir):
 
 def test_e4_score_2d_direct(code_dir):
     """E4 test_score_2d.py 를 직접 실행해도 라벨·난이도 테스트를 다시 돌리지 않는다"""
-    r = subprocess.run([PY, str(code_dir / 'test_score_2d.py')], capture_output=True, text=True, timeout=600, cwd=str(code_dir))
+    r = subprocess.run([PY, str(code_dir / 'tests' / 'test_score_2d.py')], capture_output=True, text=True, timeout=600,
+                       cwd=str(code_dir / 'tests'))
     out = r.stdout + r.stderr
     check('종료 코드 0', r.returncode, 0)
     check('라벨(test_gt_labels_2d) 사례 없음', '== GT 라벨' in out, False)
@@ -356,7 +359,7 @@ def test_e4_skip_reporting(code_dir):
         tmp = Path(d)
         (tmp / 'runs').mkdir(); (tmp / 'logs').mkdir(); (tmp / 'no_real').mkdir()
         env = dict(os.environ, FB_RUNS=str(tmp / 'runs'), FB_LOGS=str(tmp / 'logs'), FB_REAL_RUNS=str(tmp / 'no_real'),
-                   TRACKEVAL_PATH=str(tmp / 'no_trackeval'), FB_TEST_DIR=str(code_dir))
+                   TRACKEVAL_PATH=str(tmp / 'no_trackeval'), FB_TEST_DIR=str(code_dir / 'tests'))
         names = ['test_report_cache.py', 'test_check_alignment.py', 'test_trackeval_parity.py']
         r = subprocess.run([PY, str(code_dir / 'run_tests.py'), '--only', *names], capture_output=True, text=True, timeout=900, env=env)
         out = r.stdout + r.stderr

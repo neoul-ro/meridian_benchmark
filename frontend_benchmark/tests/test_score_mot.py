@@ -25,7 +25,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # 채점 코드는 한 칸 위 (frontend_benchmark/)
 import score_mot as S  # noqa: E402
 
 FAILS = []

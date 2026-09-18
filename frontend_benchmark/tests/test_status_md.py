@@ -27,7 +27,8 @@ import traceback
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent      # frontend_benchmark/ (테스트 파일은 tests/ 에 있다)
+TESTS = Path(__file__).resolve().parent            # frontend_benchmark/tests/
 sys.path.insert(0, str(HERE))
 FAILS = []
 COLS = ['시퀀스', '트랙 재현율 (Easy)', 'F@20cm', 'PQ', 'IDF1', 'HOTA_α']

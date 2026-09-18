@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """채점기 자체 검증을 전부 돌린다 (eval.sh test, 감사 C11).
 
-  test_*.py 를 전부 찾아(폴더 = 이 파일 폴더, FB_TEST_DIR 또는 --dir 로 바꿈) 파일마다 따로 실행한다.
+  test_*.py 를 전부 찾아(폴더 = frontend_benchmark/tests, FB_TEST_DIR 또는 --dir 로 바꿈) 파일마다 따로 실행한다.
   원문 로그   <LOGS>/tests/<파일 이름>.log  — 필터 없이 전부 (예전 eval.sh 는 grep 으로 Traceback 을 삼켰다)
   요약        <RUNS>/tests_summary.json
               files.<파일>: status(pass|fail|skip) · exit_code · n_ok('  OK ' 줄 수) · n_fail('FAIL' 줄 수) · n_skip('SKIP' 줄 수) ·
@@ -12,7 +12,7 @@
               나머지 fail
   실패하면    로그 끝 --tail 줄(traceback 포함)을 화면에 보인다. 하나라도 fail 이면 종료 코드 1.
   실제 데이터  테스트는 paths.REAL_RUNS(FB_REAL_RUNS) · paths.TRACKEVAL_PATH 에서 읽는다 — FB_RUNS 는 이 러너의 출력 위치일 뿐 (수정 ⑤ E4)
-실행: python run_tests.py [--list] [--dir D] [--only test_a.py ...] [--tail 40]
+실행: python run_tests.py [--list] [--dir D] [--only test_a.py ...] [--tail 40]   (기본 폴더 = frontend_benchmark/tests)
 """
 import argparse
 import json
@@ -37,7 +37,8 @@ def plan(d, only=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--dir', default=os.environ.get('FB_TEST_DIR', str(HERE)))
+    ap.add_argument('--dir', default=os.environ.get('FB_TEST_DIR', str(HERE / 'tests')),
+                    help='test_*.py 가 있는 폴더 (기본 frontend_benchmark/tests)')
     ap.add_argument('--list', action='store_true')
     ap.add_argument('--only', nargs='*')
     ap.add_argument('--tail', type=int, default=40)

@@ -37,7 +37,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # 채점 코드는 한 칸 위 (frontend_benchmark/)
 import score_frontend as S  # noqa: E402
 from paths import WS, MODELS, REAL_RUNS as RUNS  # noqa: E402,F401  (실제 데이터 — FB_RUNS 와 무관, 수정 ⑤ E4)
 SEQ = WS / 'datasets/unpacked/uHumans2_apartment_s1_00h'

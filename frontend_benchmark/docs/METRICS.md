@@ -303,7 +303,7 @@ GT 트랙 = 한 물체가 연속으로 보인 구간, 점 = 그 구간에 본 �
 
 ## 자체 검증 (`eval.sh test` → `run_tests.py`)
 
-`test_*.py` 를 전부 파일마다 따로 돌리고, 원문 로그를 `<LOGS>/tests/` 에 남기고, 실패하면 traceback 끝부분을 보여 줍니다.
+`frontend_benchmark/tests/test_*.py` 를 전부 파일마다 따로 돌리고, 원문 로그를 `<LOGS>/tests/` 에 남기고, 실패하면 traceback 끝부분을 보여 줍니다.
 요약은 `<RUNS>/tests_summary.json` (파일별 pass/fail/skip · OK 수 · SKIP 줄과 이유). 실제 데이터가 필요한 테스트는
 `paths.REAL_RUNS`(`FB_REAL_RUNS`)와 TrackEval 경로에서 읽습니다 — `FB_RUNS` 를 샌드박스로 바꿔도 따라가지 않습니다.
 실제 데이터가 없으면 `SKIP <이유>` 를 찍고 종료 0 입니다.

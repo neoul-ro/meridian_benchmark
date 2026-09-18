@@ -31,7 +31,8 @@ from pathlib import Path
 
 import numpy as np
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent      # frontend_benchmark/ (테스트 파일은 tests/ 에 있다)
+TESTS = Path(__file__).resolve().parent            # frontend_benchmark/tests/
 sys.path.insert(0, str(HERE))
 
 FAILS = []

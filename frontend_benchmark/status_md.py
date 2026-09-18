@@ -30,7 +30,7 @@
 용어  감사 D 결정: '3D 재현율' 을 쓰지 않고 '트랙 재현율', ID 수는 'GT 트랙당 예측 ID'. F@20cm 를 '20cm 이내 비율'로 설명하지 않는다.
       과다분할 · 과소분할로 쓴다 — 같은 뜻의 다른 낱말을 섞지 않는다 (표시 이름은 terms.py 한 곳).
 검증: test_status_md.py 가 만든 md 를 다시 읽어 모든 칸 · 숫자 · 형식을 summary.json 과 따로 계산해 대조한다
-      (python test_status_md.py --verify <RUNS>/status.md <RUNS>/summary.json <RUNS>/tests_summary.json).
+      (python tests/test_status_md.py --verify <RUNS>/status.md <RUNS>/summary.json <RUNS>/tests_summary.json).
 """
 import argparse
 import json

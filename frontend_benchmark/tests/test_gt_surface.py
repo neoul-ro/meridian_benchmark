@@ -27,7 +27,8 @@ import h5py
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent      # frontend_benchmark/ (테스트 파일은 tests/ 에 있다)
+TESTS = Path(__file__).resolve().parent            # frontend_benchmark/tests/
 sys.path.insert(0, str(HERE))
 from paths import REAL_RUNS as RUNS, seq_dir  # noqa: E402  (실제 데이터 — FB_RUNS 와 무관, 수정 ⑤ E4)
 
