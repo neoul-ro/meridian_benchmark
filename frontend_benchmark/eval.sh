@@ -81,7 +81,8 @@ frontend 평가 (uHumans2) — 채점 · 뷰어 · 이전 결과와 비교
   show                  마지막 채점표의 앞부분을 보여 줍니다
   status                status.md 만 다시 만듭니다 (summary.json · tests_summary.json 에서). --copy-to 로 사본 경로를 직접 줄 수 있습니다
   examples [시퀀스...]  판정 그림을 만듭니다 (입력이 바뀌었을 때만 다시 그립니다)
-  test [파일...]        채점기 자체 검증을 돌립니다 (test_*.py 전부). 끝나면 status.md 의 검증 항목 수도 다시 씁니다
+  test [파일...]        채점기 자체 검증을 돌립니다 (frontend_benchmark/tests/test_*.py). 파일 이름을 주면 그것만
+                        (예: eval.sh test test_cli.py). 끝나면 status.md 의 검증 항목 수도 다시 씁니다
   engines               TensorRT 엔진을 다시 빌드합니다 (GPU, 약 3.5분)
   run <시퀀스...>       그 시퀀스의 frontend 를 돌리고(GPU) 정렬 검증 · 가시성 후 전체 채점 · 뷰어까지
   all                   전부 (기본값). 먼저 계획을 보이고, frontend 를 다시 돌려야 하면 허락을 받습니다
@@ -506,11 +507,22 @@ case $CMD in
   engines) need_dirs; engines 1 ;;
   test)
     need_dirs
-    say "채점기 자체 검증 (test_*.py 전부)"
+    say "채점기 자체 검증 (frontend_benchmark/tests/test_*.py)"
+    targs=(); only=()
+    for a in ${REST[@]+"${REST[@]}"}; do          # 파일 이름을 그냥 줘도 되게 (tests/test_cli.py · test_cli.py 둘 다)
+      case $a in
+        -*) targs+=("$a") ;;
+        *test_*.py) only+=("$(basename "$a")") ;;
+        *) targs+=("$a") ;;
+      esac
+    done
+    [[ ${#only[@]} -gt 0 ]] && targs+=(--only "${only[@]}")
     trc=0
-    $PY -u "$HERE/run_tests.py" "${REST[@]}" || trc=$?
-    if [[ -f $OUT/summary.json ]]; then                 # status.md 의 '자체 검증 N항목' 을 방금 결과로 (재리뷰 N2)
+    $PY -u "$HERE/run_tests.py" ${targs[@]+"${targs[@]}"} || trc=$?
+    if [[ ${#REST[@]} -eq 0 && -f $OUT/summary.json ]]; then   # 전부 돌렸을 때만 status.md 의 '자체 검증 N항목' 을 갱신 (재리뷰 N2)
       $PY "$HERE/status_md.py" | sed 's/^/   /'
+    elif [[ ${#REST[@]} -gt 0 ]]; then
+      echo "   (일부만 돌렸으므로 status.md 의 자체 검증 항목 수는 그대로 둡니다 — 전부 돌리려면 인자 없이 실행해 주세요)"
     fi
     exit $trc ;;
   viewer)

@@ -48,7 +48,8 @@ from pathlib import Path
 
 import h5py
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent      # frontend_benchmark/ (테스트 파일은 tests/ 에 있다)
+TESTS = Path(__file__).resolve().parent            # frontend_benchmark/tests/
 sys.path.insert(0, str(HERE))
 import paths as REAL  # noqa: E402
 
@@ -136,7 +137,7 @@ def real_missing():
 
 def build_sim(sim, code_dir):
     code = sim / 'code'
-    shutil.copytree(code_dir, code, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+    shutil.copytree(code_dir, code, ignore=shutil.ignore_patterns('__pycache__', '*.pyc', 'tests', 'docs'))
     bench = sim / 'bench' / 'meridian_benchmark'; bench.mkdir(parents=True)
     src_pkg = REAL.BENCH_PKG / 'meridian_benchmark'
     shutil.copy(src_pkg / '__init__.py', bench / '__init__.py'); shutil.copy(src_pkg / 'uhumans2.py', bench / 'uhumans2.py')

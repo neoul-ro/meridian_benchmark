@@ -36,7 +36,8 @@ from pathlib import Path
 
 import numpy as np
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent      # frontend_benchmark/ (테스트 파일은 tests/ 에 있다)
+TESTS = Path(__file__).resolve().parent            # frontend_benchmark/tests/
 sys.path.insert(0, str(HERE))
 import score_mot as SM  # noqa: E402
 import trackeval_path as TEP  # noqa: E402

@@ -15,7 +15,8 @@ import tempfile
 import traceback
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent      # frontend_benchmark/ (테스트 파일은 tests/ 에 있다)
+TESTS = Path(__file__).resolve().parent            # frontend_benchmark/tests/
 sys.path.insert(0, str(HERE))
 FAILS = []
 
@@ -127,7 +128,7 @@ def test_m7_no_internal_defaults(tmp):
     check('환경변수 없이 고른 경로에도 _audit 없음', '_audit' in p0, False)
     check('설정(TRACKEVAL_PATH)이 있으면 그것을 쓴다', TE.resolve()[1] in ('TRACKEVAL_PATH 설정', 'pip 로 설치된 trackeval 패키지',
                                                                         '기본 위치 <WS>/third_party/TrackEval', '없음'), True)
-    par = (HERE / 'test_trackeval_parity.py').read_text()
+    par = (TESTS / 'test_trackeval_parity.py').read_text()
     check('대조 테스트가 trackeval_path 를 쓴다', 'trackeval_path' in par, True)
     check('대조 테스트 SKIP 줄에 받는 법', 'HOWTO' in par, True)
 

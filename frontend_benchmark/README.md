@@ -94,9 +94,8 @@ bash frontend_benchmark/eval.sh compare latest  # 직전 결과 ↔ 지금 결�
 
 ## 참고
 
-- **지표 정의 · 매칭 기준 · JSON/CSV 키**: [docs/METRICS.md](docs/METRICS.md)
-- **바뀐 이력**: [docs/HISTORY.md](docs/HISTORY.md)
-- **명령 전체**: `bash frontend_benchmark/eval.sh help`
+- **문서**: 지표 정의·매칭 기준·JSON/CSV 키 [docs/METRICS.md](docs/METRICS.md) · 바뀐 이력 [docs/HISTORY.md](docs/HISTORY.md) · 명령 전체 `eval.sh help`
+- **폴더**: 코드는 `frontend_benchmark/*.py` · 자체 검증은 `tests/` · 문서는 `docs/` 입니다.
 
 | 명령 | 무엇 |
 |---|---|
@@ -105,7 +104,7 @@ bash frontend_benchmark/eval.sh compare latest  # 직전 결과 ↔ 지금 결�
 | `compare [id\|latest]` · `history` | 이전 결과와 비교 · 보관 목록 |
 | `show` · `status` | 채점표 앞부분 · `status.md` 만 다시 |
 | `examples [시퀀스...]` | 판정 그림 |
-| `test [파일...]` | 자체 검증 (`test_*.py` 전부) |
+| `test [파일...]` | 자체 검증 (`tests/test_*.py` 전부, 파일 이름을 주면 그것만) |
 | `engines` · `run <시퀀스...>` · `all` | 엔진 빌드 · 그 시퀀스 전체 · 전부 (GPU) |
 
 - 옵션: `--dry-run` · `--gpu` · `--force` · `--accept-stale`
