@@ -78,23 +78,9 @@ bash frontend_benchmark/eval.sh compare latest  # 직전 결과 ↔ 지금 결�
   `FB_STATUS_COPY` 를 적어 두면 `status.md` 사본을 그 경로에 갱신합니다 — 기본 결과 폴더에서 **전체** 시퀀스를 채점했을 때만 복사합니다.
 - TrackEval 은 추적 대조 테스트 하나에만 씁니다. `pip install git+https://github.com/JonathonLuiten/TrackEval@12c8791` 또는 `TRACKEVAL_PATH=<경로>`. 없으면 그 테스트만 건너뜁니다.
 
-## 문제 해결
-
-| 증상 | 할 일 |
-|---|---|
-| `알 수 없는 명령입니다` (종료 2) | 화면의 "혹시 이 명령인가요?" 를 보거나 `eval.sh help` |
-| `그런 시퀀스가 없습니다` · `여러 개와 맞습니다` (종료 2) | 후보 중 하나를 고르거나 전체 이름(`office_s1_06h`)을 씁니다 |
-| `이 스크립트는 bash 로 실행해 주세요` | `sh` 말고 `bash` 로 실행합니다 |
-| `데이터셋이 없습니다` · `GT h5 가 없습니다` (종료 2) | 준비 표의 경로를 확인합니다. 누락 이유는 `summary.md` 에도 적힙니다 |
-| `TensorRT 엔진 없음` · `Platform specific tag mismatch` | `eval.sh engines` 로 이 PC 에서 빌드합니다 |
-| GPU 허락 없이 멈춤 (종료 3) | 다시 돌리려면 `GPU=1 … all`, 채점만 하려면 `eval.sh score` |
-| 오래된 frontend 출력으로 채점 (종료 4) | `GPU=1 … all` 로 다시 돌리거나 `score --accept-stale` |
-| `중단됨` (종료 130) | 다시 실행하면 끝난 단계부터 이어서 합니다 |
-| 채점이 오래 걸림 | 처음부터면 6개에 약 15분, 바뀐 게 없으면 약 2초입니다 |
-
 ## 참고
 
-- **문서**: 지표 정의·매칭 기준·JSON/CSV 키 [docs/METRICS.md](docs/METRICS.md) · 바뀐 이력 [docs/HISTORY.md](docs/HISTORY.md) · 명령 전체 `eval.sh help`
+- **문서**: 막혔을 때 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) · 지표 정의·매칭 기준·JSON/CSV 키 [docs/METRICS.md](docs/METRICS.md) · 바뀐 이력 [docs/HISTORY.md](docs/HISTORY.md) · 명령 전체 `eval.sh help`
 - **폴더**: 코드는 `frontend_benchmark/*.py` · 자체 검증은 `tests/` · 문서는 `docs/` 입니다.
 
 | 명령 | 무엇 |

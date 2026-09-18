@@ -90,7 +90,7 @@ def test_m7_readme(tmp):
     """M7 README 는 팀원용 순서 · 내부 경로 없음 · 정의와 이력은 docs/"""
     rd = (HERE / 'README.md').read_text()
     heads = [l.strip() for l in rd.splitlines() if l.startswith('## ')]
-    order = ['무엇', '작업', '준비', '문제', '참고']       # 사용자 먼저: 쓰는 법 → 준비 (README 모범 사례)
+    order = ['무엇', '작업', '준비', '참고']       # 사용자 먼저: 쓰는 법 → 준비 (README 모범 사례)
     idx = []
     for w in order:
         i = next((k for k, h in enumerate(heads) if w in h), None)
