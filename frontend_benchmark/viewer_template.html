@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frontend 평가 뷰어</title>
+<style>
+:root {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781; --grid: #2c2c2a; --line: #383835;
+  --good: #3987e5; --bad: #d95926; --merge: #199e70; --na: #898781;
+  --ring: rgba(255,255,255,0.10);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font-size: 14px; height: 100vh; display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--grid); flex-wrap: wrap; }
+header h1 { font-size: 15px; font-weight: 600; margin: 0; white-space: nowrap; }
+header a { color: var(--ink-2); font-size: 12px; text-decoration: none; border-bottom: 1px dotted var(--muted); }
+header a:hover { color: var(--ink); }
+.who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.when { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); line-height: 1.45; }
+#stale b { font-weight: 600; }
+#stale .warn { color: #ffb37a; }
+#stale .ok { color: var(--muted); }
+#stale code { background: var(--surface-2); padding: 0 4px; border-radius: 3px; }
+.tabs { display: flex; gap: 4px; }
+.tabs button { background: none; border: 1px solid var(--line); color: var(--ink-2); padding: 5px 12px; border-radius: 6px; cursor: pointer; font: inherit; }
+.tabs button.on { background: var(--surface-2); color: var(--ink); border-color: var(--muted); }
+.stats { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+button.stat { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; background: none; border: 1px solid transparent; border-radius: 6px;
+  color: var(--ink); padding: 2px 8px; cursor: pointer; font: inherit; }
+button.stat:hover { border-color: var(--line); background: var(--surface-2); }
+button.stat[aria-expanded="true"] { border-color: var(--muted); background: var(--surface-2); }
+button.stat b { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+button.stat span { font-size: 12px; color: var(--muted); text-decoration: underline dotted; text-underline-offset: 2px; }
+button.stat i.fb { font-style: normal; color: #ffb37a; }
+#metricdesc { padding: 10px 16px; border-bottom: 1px solid var(--grid); background: var(--surface); color: var(--ink-2); font-size: 13px; line-height: 1.6; display: flex; gap: 10px; }
+#metricdesc b { color: var(--ink); white-space: nowrap; }
+#metricdesc button { margin-left: auto; background: none; border: 1px solid var(--line); color: var(--ink-2); border-radius: 6px; cursor: pointer; font: inherit; padding: 2px 8px; height: 26px; }
+main { flex: 1; display: flex; min-height: 0; }
+.stage { flex: 1; position: relative; min-width: 0; background: var(--surface); }
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; }
+canvas.drag { cursor: grabbing; }
+.maptools { position: absolute; left: 12px; top: 12px; display: flex; gap: 6px; z-index: 2; }
+.maptools button { background: rgba(26,26,25,0.88); border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; }
+.maptools button:hover { border-color: var(--muted); }
+#kfview { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 10px; gap: 8px; }
+#kfscroll { flex: 1; min-height: 0; width: 100%; overflow: auto; display: flex; align-items: center; justify-content: center; }
+#kfwrap { position: relative; line-height: 0; flex: none; margin: auto; }
+#kfview img { display: block; border-radius: 4px; box-shadow: 0 0 0 1px var(--ring); }
+.zoom { display: flex; gap: 4px; }
+.zoom button { min-width: 30px; }
+#hl { position: absolute; border: 2px solid #ffffff; border-radius: 3px; box-shadow: 0 0 0 2px rgba(0,0,0,0.6); pointer-events: none; display: none; }
+#pmarks div { position: absolute; border: 2px dashed #ffffff; border-radius: 3px; box-shadow: 0 0 0 2px rgba(0,0,0,0.55); pointer-events: none; }
+#pmarks div span { position: absolute; left: -2px; bottom: -20px; background: rgba(13,13,13,0.9); color: #ffffff; font-size: 12px; line-height: 1.4;
+  padding: 1px 5px; border-radius: 3px; white-space: nowrap; box-shadow: 0 0 0 1px rgba(255,255,255,0.35); }
+#hl span { position: absolute; left: -2px; top: -22px; line-height: 1.4; background: #ffffff; color: #0b0b0b; font-size: 12px; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+.kfbar { display: flex; align-items: center; gap: 10px; width: min(720px, 100%); }
+.kfbar input[type=range] { flex: 1; }
+.kfbar button, .side button.act { background: var(--surface-2); border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; }
+.kfbar button:hover, .side button.act:hover { border-color: var(--muted); }
+#kflabel { color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 210px; text-align: right; }
+aside.side { width: 340px; border-left: 1px solid var(--grid); overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 16px; }
+.side h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
+.legend { display: grid; grid-template-columns: 16px 1fr auto; gap: 7px 8px; align-items: center; }
+.legend .n { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.legend label { display: contents; cursor: pointer; }
+.legend .note { grid-column: 1 / -1; color: var(--muted); font-size: 12px; margin: 2px 0 4px; }
+.sw { width: 14px; height: 12px; border-radius: 3px; }
+.sw.fill { background: currentColor; opacity: .62; }
+.sw.stripe { background: repeating-linear-gradient(45deg, currentColor 0 3px, transparent 3px 6px); opacity: .85; }
+.sw.box { border: 1px solid currentColor; background: none; }
+.sw.solid { height: 0; border-top: 2px solid currentColor; border-radius: 0; filter: drop-shadow(0 0 1.5px #000); }
+.sw.thin { height: 0; border-top: 1px solid currentColor; border-radius: 0; }
+.sw.long { height: 2px; border-radius: 0; background: repeating-linear-gradient(90deg, currentColor 0 8px, transparent 8px 12px); filter: drop-shadow(0 0 1.5px #000); }
+.sw.short { height: 2px; border-radius: 0; background: repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 5px); filter: drop-shadow(0 0 1.5px #000); }
+.toggles { display: flex; flex-direction: column; gap: 7px; color: var(--ink-2); }
+.toggles label { display: flex; gap: 8px; align-items: center; cursor: pointer; line-height: 1.4; }
+.toggles label.stack { flex-direction: column; align-items: stretch; gap: 4px; }
+.toggles label.stack select { width: 100%; }
+.row2 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; color: var(--ink-2); }
+.info { background: var(--surface); border-radius: 8px; padding: 12px; box-shadow: 0 0 0 1px var(--ring); }
+.info .title { font-weight: 600; margin-bottom: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pill { font-size: 12px; padding: 1px 8px; border-radius: 10px; border: 1px solid; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; color: var(--ink-2); font-size: 13px; margin: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.info img { width: 100%; border-radius: 4px; margin-top: 10px; cursor: pointer; }
+.eps { font-size: 12px; color: var(--ink-2); margin-top: 10px; }
+.eps div { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--grid); padding: 5px 0; line-height: 1.45; }
+.track { margin-top: 10px; font-size: 12px; color: var(--ink-2); line-height: 1.5; }
+.strip { display: flex; gap: 1px; margin: 6px 0 4px; flex-wrap: wrap; }
+.strip button { width: 8px; height: 14px; padding: 0; border: 0; background: var(--good); border-radius: 1px; position: relative; cursor: pointer; }
+.strip button.miss { background: none; box-shadow: inset 0 0 0 1px var(--muted); }
+.strip button.sw2::before { content: ''; position: absolute; left: -2px; top: -3px; bottom: -3px; width: 2px; background: #ffffff; }
+.strip button:hover { outline: 1px solid #ffffff; }
+select { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font: inherit; max-width: 100%; }
+.lv { font-size: 12px; color: var(--muted); }
+.inst { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.inst button { text-align: left; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; background: none; border: 1px solid transparent;
+  padding: 5px 6px; border-radius: 5px; color: var(--ink-2); font: inherit; cursor: pointer; line-height: 1.5; width: 100%; }
+.inst button span { display: inline-flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.inst button span.right { justify-content: flex-end; text-align: right; white-space: nowrap; }
+.inst button:hover { background: var(--surface-2); }
+.inst button[aria-pressed="true"] { border-color: var(--muted); background: var(--surface-2); color: var(--ink); }
+.inst .gh { color: var(--muted); font-size: 12px; margin: 6px 0 2px; display: flex; justify-content: space-between; }
+.chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+.chips button { background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); border-radius: 10px; padding: 1px 8px; font: inherit; font-size: 12px; cursor: pointer; }
+.chips button:hover { border-color: var(--muted); color: var(--ink); }
+.hint { color: var(--muted); font-size: 12px; line-height: 1.55; margin: 8px 0 0; }
+#tip { position: fixed; pointer-events: none; background: var(--surface-2); color: var(--ink); padding: 4px 8px; border-radius: 6px; font-size: 12px;
+  box-shadow: 0 0 0 1px var(--ring); display: none; z-index: 5; max-width: 320px; }
+@media (max-width: 760px) { main { flex-direction: column; } aside.side { width: 100%; border-left: 0; border-top: 1px solid var(--grid); max-height: 45vh; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="who">
+    <h1>Frontend 평가 뷰어</h1>
+    <select id="seqsel" title="다른 시퀀스 보기"></select>
+    <a id="listlink" href="../index.html">전체 목록</a>
+  </div>
+  <div class="tabs"><button id="tab-map" class="on">맵 (top-view)</button><button id="tab-kf">keyframe 이미지</button></div>
+  <div class="when"><span id="gen"></span><span id="stale"></span></div>
+  <div class="stats" id="stats"></div>
+</header>
+<div id="metricdesc" hidden></div>
+<main>
+  <div class="stage" id="stage">
+    <canvas id="map"></canvas>
+    <div class="maptools"><button id="reset" title="맵을 전체 크기로 되돌립니다 (단축키 0)">전체 보기</button></div>
+    <div id="kfview">
+      <div id="kfscroll"><div id="kfwrap"><img id="kfimg" alt="keyframe 판정 이미지"><div id="hl"><span></span></div><div id="pmarks"></div></div></div>
+      <div class="kfbar">
+        <button id="prev" title="이전 (←)">‹</button>
+        <input type="range" id="slider" min="0" value="0">
+        <button id="next" title="다음 (→)">›</button>
+        <span id="kflabel"></span>
+        <span class="zoom"><button id="zout" title="축소 (−)">−</button><button id="zfit" title="창에 맞추기 (0)">맞춤</button><button id="zin" title="확대 (+)">＋</button></span>
+      </div>
+    </div>
+  </div>
+  <aside class="side" id="side"></aside>
+</main>
+<div id="tip"></div>
+<script src="data.js"></script>
+<script id="fblib">
+// 순수 논리 묶음 — DOM 을 쓰지 않는다. node 로 따로 검증한다 (test_viewer_js.py).
+const FB_LIB = (() => {
+  const int = v => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : null; };
+
+  // URL 해시: #<시퀀스>/tab=…/obj=…/kf=…  (/ 대신 & 로 이어 써도 읽는다)
+  function parseHash(h) {
+    const out = {};
+    const s = String(h || '').replace(/^#/, '');
+    if (!s) return out;
+    for (const part of s.split(/[/&]/)) {
+      if (!part) continue;
+      const i = part.indexOf('=');
+      if (i < 0) { if (out.seq == null) out.seq = decodeURIComponent(part); continue; }
+      const k = part.slice(0, i), v = decodeURIComponent(part.slice(i + 1));
+      if (k === 'seq') out.seq = v;
+      else if (k === 'tab') out.tab = v === 'kf' ? 'kf' : 'map';
+      else if (k === 'obj' || k === 'kf') { const n = int(v); if (n !== null) out[k] = n; }
+    }
+    return out;
+  }
+  function buildHash(st) {
+    const p = [];
+    if (st.seq) p.push(encodeURIComponent(st.seq));
+    if (st.tab) p.push('tab=' + st.tab);
+    if (st.obj != null && st.obj >= 0) p.push('obj=' + st.obj);
+    if (st.kf != null && st.kf >= 0) p.push('kf=' + st.kf);
+    return '#' + p.join('/');
+  }
+
+  // 선택 함수 하나 (마우스 올림 · 클릭 공용): 정확한 칸 먼저, 그다음 가까운 칸. 필터에 맞는 물체만 고른다.
+  function pickAt(pick, x, y, visible, r) {
+    r = r == null ? 2 : r;
+    const ok = visible || (() => true);
+    for (let d = 0; d <= r; d++) {
+      let best = -1, bk = null;
+      for (let dx = -d; dx <= d; dx++) for (let dy = -d; dy <= d; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== d) continue;
+        const i = pick.get((x + dx) * 65536 + (y + dy));
+        if (i == null || !ok(i)) continue;
+        const k = [Math.abs(dx) + Math.abs(dy), dx, dy];
+        if (best < 0 || k[0] < bk[0] || (k[0] === bk[0] && (k[1] < bk[1] || (k[1] === bk[1] && k[2] < bk[2])))) { best = i; bk = k; }
+      }
+      if (best >= 0) return best;
+    }
+    return -1;
+  }
+
+  // 원인별 미검출 물체 묶음 (reasons 순서대로, 비어 있는 묶음은 뺀다)
+  function missedGroups(objects, reasons, show) {
+    const ok = show || (() => true);
+    const g = new Map();
+    for (const r of (reasons || [])) g.set(r.code, { code: r.code, label: r.label, n: 0, objs: [] });
+    (objects || []).forEach((o, i) => {
+      if (o.status !== 'missed' && o.status !== 'merged') return;
+      if (!ok(o, i)) return;
+      let x = g.get(o.rc);
+      if (!x) { x = { code: o.rc, label: o.rc, n: 0, objs: [] }; g.set(o.rc, x); }
+      x.n++; x.objs.push(i);
+    });
+    return [...g.values()].filter(x => x.n);
+  }
+
+  // keyframe 필터: 2D 상태 · 3D 상태가 그 keyframe 에 1개 이상 있는지 (둘 다 고르면 둘 다 있어야)
+  function kfPass(kf, f) {
+    if (!f) return true;
+    if (f.st2 && !(((kf && kf.gt) || {})[f.st2] > 0)) return false;
+    if (f.st3 && !(((kf && kf.s3) || {})[f.st3] > 0)) return false;
+    return true;
+  }
+
+  // 뷰어가 채점 결과보다 오래됐는지: 채점 단계 캐시 키 비교
+  function staleState(built, now) {
+    const a = (built && built.steps) || {}, b = now && now.steps;
+    if (!b || !Object.keys(b).length) return { state: 'unknown', steps: [], msg: '최신 여부를 확인할 자료가 없습니다' };
+    const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].sort();
+    const diff = keys.filter(k => a[k] !== b[k]);
+    return diff.length ? { state: 'stale', steps: diff, msg: '채점이 다시 돌았습니다: ' + diff.join(', ') }
+                       : { state: 'fresh', steps: [], msg: '채점 결과와 같은 입력으로 만들었습니다' };
+  }
+
+  // 맵 칸을 칠할지 — 채점 제외 물체는 빗금(2칸 칠하고 2칸 비움, 45°)으로 그린다.
+  // 색만으로 구분하지 않기 위해서다 (색약 · 흑백 인쇄 · 보고서에 붙인 정지 화면). 나머지 판정은 꽉 채운다.
+  function hatch(status, x, y) { return status !== 'ineligible' || (((x + y) % 4 + 4) % 4) < 2; }
+
+  // keyframe 그림을 남는 자리에 맞추는 배율. 2배 이상이면 정수 배율로 (마스크·윤곽 가장자리가 뭉개지지 않게)
+  function imgScale(availW, availH, w, h, zoom) {
+    if (!(availW > 0 && availH > 0 && w > 0 && h > 0)) return 1;
+    let s = Math.min(availW / w, availH / h);
+    if (s >= 2) s = Math.floor(s);
+    s *= (zoom || 1);
+    return Math.max(0.25, Math.min(s, 8));
+  }
+
+  // 물체를 고른 채 keyframe 탭으로 갈 때 어느 keyframe 을 볼지 — 그 물체가 판정된 keyframe
+  function pickKf(o, cur) {
+    const rows = (o && o.kfj) || [];
+    if (!rows.length) return (o && o.best_kf >= 0) ? o.best_kf : cur;
+    if (rows.some(r => r.kf === cur)) return cur;
+    const byRc = o.rc ? rows.filter(r => r.st === o.rc) : [];
+    const pool = byRc.length ? byRc : rows;
+    return (pool.find(r => r.kf === o.best_kf) || pool[0]).kf;
+  }
+
+  // 그 자리에서 summary.json 을 읽을 수 있는 주소인지 (뷰어 폴더만 서버로 열면 밖에 있어 404 가 난다)
+  function canReadSummary(protocol, pathname) {
+    if (protocol !== 'http:' && protocol !== 'https:') return false;
+    return /\/viewer\/uHumans2_[^/]+\/[^/]*$/.test(pathname || '');
+  }
+
+  return { parseHash, buildHash, pickAt, missedGroups, kfPass, staleState, hatch, imgScale, pickKf, canReadSummary };
+})();
+if (typeof module !== 'undefined') module.exports = FB_LIB;
+</script>
+<script>
+(() => {
+const D = window.FB, LIB = FB_LIB;
+const $ = id => document.getElementById(id);
+const i16 = s => { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return new Int16Array(u.buffer); };
+const u16 = s => { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return new Uint16Array(u.buffer); };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const C = Object.assign({ detected: '#3987e5', missed: '#d95926', merged: '#199e70', ineligible: '#898781' }, D.colors || {});
+// 표시 이름은 build_viewer 가 terms.py 에서 넣는다 (용어 한 곳) — 없으면 코드값을 그대로 보인다
+const LABEL = Object.assign({ detected: 'detected', missed: 'missed', merged: 'merged', ineligible: 'ineligible' }, D.labels || {});
+const G2 = D.gt2d || {}, P2 = D.pred2d || {}, KF3 = D.kf3d || {};
+const g2label = c => G2[c] || `‹${c}›`, p2label = c => P2[c] || `‹${c}›`;
+const k3label = c => (KF3[c] && KF3[c].label) || (c ? `‹${c}›` : '–');
+const k3desc = c => (KF3[c] && KF3[c].desc) || '';
+const AREA = D.area_min_px || 1600, TAU = D.tau_cm || 20, THETA = D.theta == null ? 0.5 : D.theta;
+const IOU3 = D.iou_thr == null ? 0.5 : D.iou_thr;
+const KFL = D.kf_label || 'kf', FRL = D.frame_label || 'frame';   // 번호 규칙 한 가지: kf = CSV 의 kf 열(0부터) · 프레임 = 데이터셋 프레임
+const kfName = k => { const x = D.kfs[k]; return `${KFL} ${k}${x ? ` · ${FRL} ${x.frame}` : ''}`; };
+const objName = o => `${o.kind === 'human' ? '사람' : '물체'} ${o.id}`;
+const PICK_R = 2;
+
+// ---------------- 머리말: 생성 시각 · 지표 (지표 이름·설명은 data.js, m7 = 눌러서 여는 설명 칸)
+$('gen').textContent = `생성 ${D.generated || '–'}` + (D.source && D.source.scored ? ` · 채점 ${D.source.scored}` : '');
+const M = D.metrics || [];
+$('stats').innerHTML = M.map((m, i) =>
+  `<button class="stat" data-m="${i}" aria-expanded="false" aria-controls="metricdesc"><b>${esc(m.value)}</b>` +
+  `<span title="${esc(m.full || m.label)}">${esc(m.label)}${m.fallback ? '<i class="fb" title="terms.py 에 이 이름이 없어 뷰어 기본값을 씁니다">*</i>' : ''}</span></button>`).join('');
+let openMetric = -1;
+function showMetric(i) {
+  const box = $('metricdesc');
+  document.querySelectorAll('button.stat').forEach(b => b.setAttribute('aria-expanded', String(+b.dataset.m === i)));
+  if (i < 0 || !M[i]) { box.hidden = true; openMetric = -1; return; }
+  openMetric = i;
+  box.hidden = false;
+  box.innerHTML = `<b>${esc(M[i].full || M[i].label)}</b><span>${esc(M[i].desc)}${M[i].fallback ? ' (이름은 뷰어 기본값)' : ''}</span><button type="button" id="mdclose">닫기</button>`;
+  $('mdclose').onclick = () => showMetric(-1);
+}
+$('stats').addEventListener('click', e => { const b = e.target.closest('button.stat'); if (b) showMetric(openMetric === +b.dataset.m ? -1 : +b.dataset.m); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && openMetric >= 0) showMetric(-1); });
+
+// ---------------- 데이터 풀기
+const bgXY = i16(D.bg.xy), bgW = u16(D.bg.w);
+const oc = i16(D.obj_cells.xy), pm = i16(D.pred.matched.xy), pu = i16(D.pred.unmatched.xy), tr = i16(D.traj.xy);
+let maxX = 0, maxY = 0;
+for (let i = 0; i < bgXY.length; i += 2) { if (bgXY[i] > maxX) maxX = bgXY[i]; if (bgXY[i + 1] > maxY) maxY = bgXY[i + 1]; }
+for (let i = 0; i < oc.length; i += 2) { if (oc[i] > maxX) maxX = oc[i]; if (oc[i + 1] > maxY) maxY = oc[i + 1]; }
+const MW = maxX + 2, MH = maxY + 2;
+
+// 칸 → 물체 (작은 물체가 위)
+const order = D.objects.map((o, i) => i).sort((a, b) => D.objects[b].n - D.objects[a].n);
+const pick = new Map();
+for (const i of order) { const o = D.objects[i]; for (let j = o.off; j < o.off + o.n; j++) pick.set(oc[2 * j] * 65536 + oc[2 * j + 1], i); }
+
+// ---------------- 상태
+const state = {
+  tab: 'map', sel: -1, kf: 0, reason: '', q: '', hide: false, marks: { kf: -1, obs: [] }, kfzoom: 1, view: null, kff: { st2: '', st3: '' }, kfsel: -1, moreMiss: {},
+  show: { detected: true, missed: true, merged: true, ineligible: true, human: true, static: true, big: true, bg: true, pm: false, pu: false, traj: true },
+};
+// 필터에 맞는 물체 (맞지 않는 물체는 숨기지 않고 흐리게 그린다 — 개수는 범례에)
+function matches(o) {
+  if (!state.show[o.status] || !state.show[o.kind]) return false;
+  if (state.reason && o.rc !== state.reason) return false;
+  return true;
+}
+const matchCount = () => D.objects.reduce((n, o) => n + (matches(o) ? 1 : 0), 0);
+
+// ---------------- 맵 레이어 (칸 1개 = 1px 오프스크린)
+function layer(fn) { const c = document.createElement('canvas'); c.width = MW; c.height = MH; const x = c.getContext('2d'); fn(x, c); return c; }
+function cellsInto(ctx, arr, rgba) {
+  const im = ctx.getImageData(0, 0, MW, MH), d = im.data;
+  for (let i = 0; i < arr.length; i += 2) { const p = ((MH - 1 - arr[i + 1]) * MW + arr[i]) * 4; d[p] = rgba[0]; d[p + 1] = rgba[1]; d[p + 2] = rgba[2]; d[p + 3] = rgba[3]; }
+  ctx.putImageData(im, 0, 0);
+}
+const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16), 255];
+const L = {};
+L.bg = layer(ctx => {
+  const im = ctx.getImageData(0, 0, MW, MH), d = im.data; let mx = 1;
+  for (let i = 0; i < bgW.length; i++) mx = Math.max(mx, bgW[i]);
+  const lm = Math.log(1 + mx);
+  for (let i = 0, j = 0; i < bgXY.length; i += 2, j++) {
+    const p = ((MH - 1 - bgXY[i + 1]) * MW + bgXY[i]) * 4, v = 50 + Math.round(120 * Math.log(1 + bgW[j]) / lm);
+    d[p] = v; d[p + 1] = v; d[p + 2] = v - 4; d[p + 3] = 255;
+  }
+  ctx.putImageData(im, 0, 0);
+});
+L.pm = layer(ctx => cellsInto(ctx, pm, [240, 240, 232, 255]));
+L.pu = layer(ctx => cellsInto(ctx, pu, [120, 118, 112, 255]));
+function paint(ctx, want, dim, flat) {
+  const im = ctx.getImageData(0, 0, MW, MH), d = im.data;
+  for (const i of order) {
+    const o = D.objects[i];
+    if (!want(i)) continue;
+    const col = hex(C[o.status] || C.ineligible);
+    col[3] = dim ? 34 : (state.show.big && Math.max(o.size[0], o.size[1]) > 3 ? 70 : 255);   // 바닥·벽 같은 큰 구조물은 흐리게
+    for (let j = o.off; j < o.off + o.n; j++) {
+      const cxp = oc[2 * j], cyp = oc[2 * j + 1];
+      if (!flat && !LIB.hatch(o.status, cxp, cyp)) continue;            // 채점 제외는 빗금 (범례 무늬와 같은 규칙)
+      const p = ((MH - 1 - cyp) * MW + cxp) * 4; d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = col[3];
+    }
+  }
+  ctx.putImageData(im, 0, 0);
+}
+function buildObjects() {
+  L.obj = layer(ctx => paint(ctx, i => matches(D.objects[i]), false));
+  L.objFlat = layer(ctx => paint(ctx, i => matches(D.objects[i]), false, true));   // 축소했을 때는 빗금 없이 (칸이 1px 미만이면 무늬가 사라져 더 흐려진다)
+  L.dim = layer(ctx => paint(ctx, i => !matches(D.objects[i]), true));
+}
+buildObjects();
+
+// ---------------- 맵 그리기 (M1: 창 크기가 0 이면 배율 0 으로 굳지 않게)
+const cv = $('map'), cx = cv.getContext('2d'), stage = $('stage');
+const validView = v => !!v && isFinite(v.s) && v.s > 0 && isFinite(v.tx) && isFinite(v.ty);
+let fitPending = false;
+function needFit() {                                        // 아직 크기가 없으면 다음 프레임에 다시 (headless·배경 탭·창 복원)
+  if (fitPending) return;
+  fitPending = true;
+  const retry = n => {
+    fitPending = false;
+    if (fit()) { draw(); return; }
+    if (n < 60) { fitPending = true; setTimeout(() => retry(n + 1), 50); }
+  };
+  requestAnimationFrame(() => retry(0));
+}
+function fit() {
+  const r = cv.getBoundingClientRect();
+  const s = Math.min(r.width / MW, r.height / MH) * 0.95;
+  if (!(r.width > 1 && r.height > 1 && s > 0)) { needFit(); return false; }
+  state.view = { s, tx: (r.width - MW * s) / 2, ty: (r.height - MH * s) / 2 };
+  return true;
+}
+function toScreen(x, y) { const v = state.view; return [v.tx + x * v.s, v.ty + (MH - 1 - y) * v.s]; }
+function toCell(sx, sy) { const v = state.view; return [Math.floor((sx - v.tx) / v.s), MH - 1 - Math.floor((sy - v.ty) / v.s)]; }
+function draw() {
+  if (state.tab !== 'map') return;
+  const r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+  if (!(r.width > 1 && r.height > 1)) { needFit(); return; }
+  if (!validView(state.view) && !fit()) return;
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx.fillStyle = '#1a1a19'; cx.fillRect(0, 0, r.width, r.height);
+  const v = state.view;
+  cx.imageSmoothingEnabled = false;
+  const put = c => cx.drawImage(c, v.tx, v.ty, MW * v.s, MH * v.s);
+  if (state.show.bg) put(L.bg);
+  if (state.show.pu) put(L.pu);
+  if (state.show.pm) put(L.pm);
+  if (!state.hide) put(L.dim);
+  put(v.s >= 1.2 ? L.obj : L.objFlat);
+  markSmall(v);                                                 // 작게 보이는 미검출·과소분할에 고리 표시
+  if (state.show.traj) {
+    cx.strokeStyle = 'rgba(255,255,255,0.35)'; cx.lineWidth = 1; cx.beginPath();
+    for (let i = 0; i < tr.length; i += 2) { const [a, b] = toScreen(tr[i] / 4, tr[i + 1] / 4); i ? cx.lineTo(a, b) : cx.moveTo(a, b); }
+    cx.stroke();
+    const k = D.kfs[state.kf];
+    if (k) { const [a, b] = toScreen(k.x, k.y); cx.fillStyle = '#ffffff'; cx.beginPath(); cx.arc(a, b, 4, 0, 7); cx.fill();
+      cx.strokeStyle = '#ffffff'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(a, b); cx.lineTo(a + 16 * Math.cos(k.yaw), b - 16 * Math.sin(k.yaw)); cx.stroke(); }
+  }
+  if (state.sel >= 0) {
+    const o = D.objects[state.sel];
+    cx.fillStyle = '#ffffff';
+    const w = Math.max(v.s, 1.5);
+    for (let j = o.off; j < o.off + o.n; j++) { const [a, b] = toScreen(oc[2 * j], oc[2 * j + 1]); cx.fillRect(a, b, w, w); }
+    const [a, b] = toScreen(o.cx, o.cy); cx.strokeStyle = '#ffffff'; cx.lineWidth = 2; cx.beginPath(); cx.arc(a, b, 14, 0, 7); cx.stroke();
+  }
+  const m = 5 / D.cell * v.s; cx.fillStyle = '#c3c2b7'; cx.fillRect(16, r.height - 20, m, 2); cx.font = '12px system-ui'; cx.fillText('5 m', 16, r.height - 26);
+}
+new ResizeObserver(() => {
+  if (state.tab === 'map') { if (!validView(state.view)) fit(); draw(); } else layoutKf();
+}).observe(stage);
+addEventListener('resize', () => { if (state.tab === 'map') { if (!validView(state.view)) fit(); draw(); } });
+addEventListener('load', () => { if (state.tab === 'map') { if (!validView(state.view)) fit(); draw(); } });
+$('reset').onclick = () => { fit(); draw(); };
+
+function markSmall(v) {                                         // 화면에서 너무 작아진 미검출·과소분할 물체에 고리를 그린다 (축소해도 눈에 띄게)
+  const px = c => c / D.cell * v.s;                             // m → 화면 px
+  let n = 0;
+  cx.lineWidth = 1.5;
+  for (let i = 0; i < D.objects.length; i++) {
+    const o = D.objects[i];
+    if (o.status !== 'missed' && o.status !== 'merged') continue;
+    if (!matches(o)) continue;
+    if (Math.max(px(o.size[0]), px(o.size[1])) > 7) continue;    // 이미 충분히 크게 보이면 그대로
+    const [a, b] = toScreen(o.cx, o.cy);
+    if (a < -20 || b < -20 || a > cv.width || b > cv.height) continue;
+    cx.strokeStyle = C[o.status];
+    cx.beginPath(); cx.arc(a, b, 6, 0, 7); cx.stroke();
+    if (++n > 800) break;
+  }
+}
+
+// 팬 · 줌 · 선택 (마우스 올림과 클릭이 같은 pickAt 을 쓴다 — M2)
+function pickEvent(e) {
+  if (!validView(state.view)) return -1;
+  const r = cv.getBoundingClientRect(), [x, y] = toCell(e.clientX - r.left, e.clientY - r.top);
+  return LIB.pickAt(pick, x, y, i => matches(D.objects[i]), PICK_R);
+}
+let drag = null;
+cv.addEventListener('mousedown', e => { if (!validView(state.view)) return; drag = { x: e.clientX, y: e.clientY, tx: state.view.tx, ty: state.view.ty, moved: false }; cv.classList.add('drag'); });
+addEventListener('mouseup', e => {
+  cv.classList.remove('drag');
+  if (drag && !drag.moved && state.tab === 'map') {
+    const r = cv.getBoundingClientRect();
+    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) selectObj(pickEvent(e), false);
+  }
+  drag = null;
+});
+addEventListener('mousemove', e => {
+  if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true; state.view.tx = drag.tx + dx; state.view.ty = drag.ty + dy; draw(); return; }
+  const tip = $('tip');
+  if (state.tab !== 'map') { tip.style.display = 'none'; return; }
+  const r = cv.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) { tip.style.display = 'none'; return; }
+  const i = pickEvent(e);
+  if (i >= 0) {
+    const o = D.objects[i];
+    tip.textContent = `${objName(o)} · ${LABEL[o.status]}${o.reason && o.reason !== LABEL[o.status] ? ' — ' + o.reason : ''}`;
+    tip.style.display = 'block'; tip.style.left = '0px'; tip.style.top = '0px';
+    const w = tip.offsetWidth, h = tip.offsetHeight;                        // 옆 패널·화면 밖을 가리지 않게 뒤집는다
+    const x = (e.clientX + 14 + w > r.right) ? Math.max(4, e.clientX - 14 - w) : e.clientX + 14;
+    const y = (e.clientY + 14 + h > innerHeight) ? Math.max(4, e.clientY - 14 - h) : e.clientY + 14;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  } else tip.style.display = 'none';
+});
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (!validView(state.view)) { fit(); draw(); return; }
+  const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, v = state.view;
+  const f = Math.exp(-e.deltaY * 0.0015), ns = Math.min(Math.max(v.s * f, 0.05), 60);
+  v.tx = mx - (mx - v.tx) * ns / v.s; v.ty = my - (my - v.ty) * ns / v.s; v.s = ns; draw();
+}, { passive: false });
+
+function selectObj(i, zoom) {
+  const changed = state.sel !== i;
+  state.sel = i;
+  if (i >= 0 && zoom) zoomTo(D.objects[i]);
+  if (state.tab === 'kf') { renderSide(); highlight(); } else { renderSide(); draw(); }
+  if (changed && state.tab === 'map') $('side').scrollTop = 0;   // 물체 정보가 맨 위에 오도록
+  syncHash();
+}
+function fitScale() {
+  const r = cv.getBoundingClientRect();
+  return (r.width > 1 && r.height > 1) ? Math.min(r.width / MW, r.height / MH) * 0.95 : 0;
+}
+function zoomTo(o) {                                           // 물체가 화면의 약 1/4 을 차지하게 (주변 맥락을 남긴다)
+  if (!validView(state.view) && !fit()) return;
+  const r = cv.getBoundingClientRect(), v = state.view;
+  const cells = Math.max(Math.max(o.size[0], o.size[1]) / D.cell, 2);
+  const want = Math.min(r.width, r.height) * 0.10 / cells;     // 물체가 짧은 변의 약 1/10 — 방 단위 맥락이 남는다
+  const f = fitScale() || 1;
+  v.s = Math.min(Math.max(want, f * 1.5), f * 4, 10);          // 전체 보기의 1.5~4배 안에서
+  v.tx = r.width / 2 - o.cx * v.s; v.ty = r.height / 2 - (MH - 1 - o.cy) * v.s;
+}
+
+// ---------------- keyframe
+const kfList = () => D.kfs.map((k, i) => i).filter(i => LIB.kfPass(D.kfs[i], state.kff));
+const KFW = 640, KFH = 480;
+function layoutKf() {                                          // 남는 자리에 맞춰 그림을 키운다 (겹쳐 그리는 좌표도 같은 배율)
+  const box = $('kfscroll').getBoundingClientRect(), img = $('kfimg');
+  if (!(box.width > 1 && box.height > 1)) return;
+  const s = LIB.imgScale(box.width - 10, box.height - 10, KFW, KFH, state.kfzoom);
+  const w = Math.round(KFW * s), h = Math.round(KFH * s);
+  img.style.width = w + 'px'; img.style.height = h + 'px';
+  img.style.imageRendering = (s >= 2 && Math.abs(s - Math.round(s)) < 1e-6) ? 'pixelated' : 'auto';
+  const wrap = $('kfwrap'); wrap.style.width = w + 'px'; wrap.style.height = h + 'px';
+  highlight();
+}
+function setKfZoom(z) { state.kfzoom = Math.max(0.5, Math.min(z, 4)); layoutKf(); }
+function showKf(i) {
+  if (!D.kfs.length) return;
+  state.kf = Math.max(0, Math.min(D.kfs.length - 1, i));
+  const k = D.kfs[state.kf];
+  $('kfimg').src = `kf/${String(k.frame).padStart(6, '0')}.jpg`;
+  const list = kfList(), at = list.indexOf(state.kf);
+  $('slider').max = Math.max(list.length - 1, 0); $('slider').value = Math.max(at, 0);
+  $('kflabel').textContent = `${kfName(state.kf)} · ${at >= 0 ? at + 1 : '–'}/${list.length}${list.length < D.kfs.length ? ' (필터)' : ''}`;
+  renderSide(); layoutKf();
+}
+function step(d) { const list = kfList(); if (!list.length) return; const p = list.indexOf(state.kf); showKf(list[Math.max(0, Math.min(list.length - 1, (p < 0 ? 0 : p) + d))]); syncHash(); }
+$('prev').onclick = () => step(-1); $('next').onclick = () => step(1);
+$('slider').oninput = e => { const list = kfList(); if (list.length) { showKf(list[Math.min(+e.target.value, list.length - 1)]); syncHash(); } };
+$('kfimg').addEventListener('load', () => layoutKf());
+$('zin').onclick = () => setKfZoom(state.kfzoom * 1.25);
+$('zout').onclick = () => setKfZoom(state.kfzoom / 1.25);
+$('zfit').onclick = () => setKfZoom(1);
+$('kfscroll').addEventListener('wheel', e => { if (state.tab !== 'kf') return; e.preventDefault(); setKfZoom(state.kfzoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12)); }, { passive: false });
+addEventListener('keydown', e => {
+  if (e.key === '0' && state.tab === 'map') { fit(); draw(); return; }
+  if (state.tab === 'kf' && (e.key === '+' || e.key === '=')) { setKfZoom(state.kfzoom * 1.25); return; }
+  if (state.tab === 'kf' && e.key === '-') { setKfZoom(state.kfzoom / 1.25); return; }
+  if (state.tab === 'kf' && e.key === '0') { setKfZoom(1); return; }
+  if (state.tab !== 'kf' || e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowLeft') step(-1); if (e.key === 'ArrowRight') step(1);
+});
+// 판정 근거 keyframe 으로 이동 + 그 물체 자동 강조 (M4)
+function goKf(k, obj, obs) {
+  if (obj != null && obj >= 0) state.sel = obj;
+  state.marks = { kf: Math.max(0, Math.min(D.kfs.length - 1, k)), obs: (obs || []).slice() };
+  state.kf = Math.max(0, Math.min(D.kfs.length - 1, k));
+  if (!LIB.kfPass(D.kfs[state.kf], state.kff)) state.kff = { st2: '', st3: '' };   // 필터 때문에 못 가는 일이 없게
+  setTab('kf');
+  syncHash();
+}
+let hoverBox = null;
+function markPreds() {                                        // 판정 행이 가리키는 예측 마스크를 점선 상자로 (M4 — 조각이 어느 마스크인지)
+  const box = $('pmarks'), img = $('kfimg'), k = D.kfs[state.kf];
+  box.innerHTML = '';
+  if (!k || !img.clientWidth || state.marks.kf !== state.kf || !state.marks.obs.length) return;
+  const sx = img.clientWidth / 640, sy = img.clientHeight / 480;
+  box.innerHTML = state.marks.obs.map((ob, i) => {
+    const b = (k.pboxes || {})[ob];
+    if (!b) return '';
+    const up = i % 2 === 0 && b[1] * sy > 22;                 // 이름표를 위·아래로 번갈아 (여러 개가 겹치지 않게)
+    return `<div style="left:${b[0] * sx}px;top:${b[1] * sy}px;width:${(b[2] - b[0]) * sx}px;height:${(b[3] - b[1]) * sy}px">` +
+      `<span style="${up ? 'top:-20px;bottom:auto' : ''}">예측 ${esc(ob)}</span></div>`;
+  }).join('');
+}
+function highlight() {
+  const hl = $('hl'), img = $('kfimg'), k = D.kfs[state.kf];
+  hl.style.display = 'none';
+  markPreds();
+  if (!k || !img.clientWidth) return;
+  let b = hoverBox, name = '';
+  if (!b && state.sel >= 0) {
+    const o = D.objects[state.sel];
+    const bs = (o.eplist || []).map(e => (k.boxes || {})[e]).filter(Boolean);
+    if (bs.length) { b = bs.reduce((a, c) => [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])]); name = objName(o); }
+  } else if (b && state.sel >= 0) name = objName(D.objects[state.sel]);
+  if (!b) return;
+  const sx = img.clientWidth / 640, sy = img.clientHeight / 480;
+  Object.assign(hl.style, { display: 'block', left: b[0] * sx + 'px', top: b[1] * sy + 'px',
+    width: (b[2] - b[0]) * sx + 'px', height: (b[3] - b[1]) * sy + 'px' });
+  hl.firstChild.textContent = name || (hoverName || '');
+}
+let hoverName = '', lastScroll = '';
+
+function setTab(t) {
+  state.tab = t; $('tab-map').classList.toggle('on', t === 'map'); $('tab-kf').classList.toggle('on', t === 'kf');
+  cv.style.display = t === 'map' ? 'block' : 'none'; $('kfview').style.display = t === 'kf' ? 'flex' : 'none';
+  $('tip').style.display = 'none'; $('reset').style.display = t === 'map' ? '' : 'none';
+  if (t === 'kf') {
+    if (state.sel >= 0) {                                      // 고른 물체가 판정된 keyframe 으로 (kf 0 에 머무르지 않게)
+      const want = LIB.pickKf(D.objects[state.sel], state.kf);
+      if (want != null && want >= 0) state.kf = want;
+    }
+    showKf(state.kf);
+  }
+  else { if (!validView(state.view)) fit(); draw(); renderSide(); }
+  syncHash();
+}
+$('tab-map').onclick = () => setTab('map'); $('tab-kf').onclick = () => setTab('kf');
+
+// ---------------- 옆 패널
+function counts() { const c = { detected: 0, missed: 0, merged: 0, ineligible: 0 }; for (const o of D.objects) if (state.show[o.kind]) c[o.status]++; return c; }
+function reasonLabel(code) { const r = (D.reasons || []).find(x => x.code === code); return r ? r.label : code; }
+
+function mapSide() {
+  const c = counts(), nMatch = matchCount();
+  // 고른 물체 정보를 맨 위에 붙인다 — 옆 패널이 길어도 바로 보이게 (목록·필터는 그 아래)
+  let h = state.sel >= 0 ? objectPanel(D.objects[state.sel]) : '';
+  h += `<section><h2>GT 물체 (3D 채점 · 물체 = 같은 gt_object_id 의 GT 트랙 묶음)</h2><div class="legend">` +
+    ['detected', 'missed', 'merged', 'ineligible'].map(s =>
+      `<label><span class="sw ${s === 'ineligible' ? 'stripe' : 'fill'}" style="color:${C[s]}"></span><span><input type="checkbox" data-s="${s}" ${state.show[s] ? 'checked' : ''}> ${esc(LABEL[s])}</span><span class="n">${c[s]}</span></label>`).join('') +
+    `<span class="note">필터에 맞는 물체 <b>${nMatch}</b> / 전체 ${D.objects.length} — 맞지 않는 물체는 지우지 않고 흐리게 둡니다.</span>` +
+    `</div><div class="toggles" style="margin-top:8px">` +
+    `<label><input type="checkbox" id="hideoff" ${state.hide ? 'checked' : ''}> 맞지 않는 물체를 아예 숨기기</label>` +
+    `<label class="stack">미검출 원인 <select id="reason">` +
+    [['', `전체 (${D.objects.filter(o => o.status === 'missed' || o.status === 'merged').length})`]]
+      .concat((D.reasons || []).map(r => [r.code, `${r.label} (${D.objects.filter(o => o.rc === r.code).length})`]))
+      .map(([v, t]) => `<option value="${esc(v)}" ${state.reason === v ? 'selected' : ''}>${esc(t)}</option>`).join('') + `</select></label></div>` +
+    `<p class="hint">${esc(LABEL.ineligible)} = 640×480 crop · 평가 거리 범위(evaluation range) 안에서 ${AREA}px 이상 보인 적 없는 물체. ` +
+    `맵에서는 빗금으로 그립니다 (색 말고 무늬로도 구분). ` +
+    `색과 이유는 같은 규칙에서 나옵니다: 채점 대상 GT 트랙들의 원인 중 가장 많은 값.${state.reason ? ` 지금 고른 원인: ${esc(reasonLabel(state.reason))}${(D.reason_gloss || {})[state.reason] ? ' (' + esc(D.reason_gloss[state.reason]) + ')' : ''} — ${esc((D.reason_desc || {})[state.reason] || '')}` : ''}</p></section>`;
+
+  // 원인별 목록 (M3) — 누르면 그 물체로 확대
+  const q = (state.q || '').trim();
+  const groups = LIB.missedGroups(D.objects, D.reasons || [], o => matches(o) && (!q || String(o.id).includes(q)));
+  h += `<section id="missList"><h2>매칭 안 된 물체 (원인별 · 누르면 확대)</h2>` +
+    `<div class="row2" style="margin-bottom:6px"><input id="objq" value="${esc(q)}" placeholder="물체 번호로 찾기" ` +
+    `style="flex:1;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 8px;font:inherit">` +
+    (q ? `<button class="act" id="objqclear">지우기</button>` : '') + `</div>` +
+    (groups.length ? groups.map(g => {
+      const more = state.moreMiss[g.code], objs = more ? g.objs : g.objs.slice(0, 12);
+      return `<div class="inst"><div class="gh"><span>${esc(g.label)}</span><span>${g.n}</span></div>` +
+        objs.map(i => { const o = D.objects[i];
+          return `<button data-miss="${i}"><span>${esc(objName(o))}</span><span class="right lv">${o.max_px}px · ${o.size[0]}×${o.size[1]}m</span></button>`; }).join('') +
+        (g.objs.length > objs.length || more ? `<button class="act" data-more="${esc(g.code)}" style="margin-top:4px">${more ? '접기' : `나머지 ${g.objs.length - objs.length}개 더 보기`}</button>` : '') +
+        `</div>`;
+    }).join('') : `<p class="hint">이 표시 조건에서는 매칭 안 된 물체가 없습니다.</p>`) + `</section>`;
+
+  h += `<section><h2>표시</h2><div class="toggles">` +
+    [['static', '정적 물체'], ['human', '사람'], ['big', '큰 구조물(3m 초과, 바닥·벽) 흐리게'], ['bg', '배경 (frontend 가 publish 한 점 밀도)'],
+     ['pm', 'GT 에 매칭된 예측의 점'], ['pu', '매칭 안 된 예측의 점'], ['traj', `카메라 궤적 · 현재 ${KFL}`]]
+      .map(([k, t]) => `<label><input type="checkbox" data-t="${k}" ${state.show[k] ? 'checked' : ''}> ${esc(t)}</label>`).join('') +
+    `</div></section>`;
+
+  if (state.sel < 0) h += `<p class="hint">물체를 누르면 판정 이유와 판정 근거 ${KFL} 목록이 나옵니다. 드래그로 이동, 휠로 확대, '전체 보기'로 되돌리기.</p>`;
+  return h;
+}
+
+function objectPanel(o) {
+  const showReason = o.reason && o.reason !== LABEL[o.status];        // '과소분할 — 과소분할' 같은 중복 문구를 없앤다
+  const j = o.kfj || [];
+  const byStatus = {};
+  for (const x of j) (byStatus[x.st] = byStatus[x.st] || []).push(x);
+  const statusOrder = Object.keys(KF3).filter(s => byStatus[s]).concat(Object.keys(byStatus).filter(s => !KF3[s]));
+  let h = `<section class="info"><div class="title">${esc(objName(o))} <span class="pill" style="color:${C[o.status]};border-color:${C[o.status]}">${esc(LABEL[o.status])}</span></div>` +
+    `<dl class="kv">${showReason ? `<dt>이유</dt><dd>${esc(o.reason)}</dd>` : ''}<dt>크기</dt><dd>${o.size.join(' × ')} m</dd>` +
+    `<dt title="채점 대상 GT 트랙에 탐지 인정(detect_credit=1)으로 매칭된 예측의 수">매칭된 예측</dt><dd>${o.n_matched}건</dd>` +
+    `<dt title="예측 복셀 → GT 트랙 점군 최근접 거리의 관측별 평균, 그 중앙값 (summary.md 2장과 같은 통계)">평균 거리</dt>` +
+    `<dd>${o.dist_cm == null ? '–' : o.dist_cm.toFixed(2) + ' cm'}</dd>` +
+    `<dt title="판정 그림이 있는 ${KFL} 중 가장 크게 보인 순간의 crop 가시 픽셀">${KFL} 중 최대 가시</dt><dd>${o.best_px} px</dd>` +
+    `<dt title="GT 트랙 전체 ${FRL} 중 최대 crop 가시 픽셀 — 채점 대상 판정(≥ ${AREA}px)에 쓰는 값">전 ${FRL} 최대 가시</dt><dd>${o.max_px == null ? '–' : o.max_px + ' px'}</dd></dl>`;
+
+  // (keyframe, GT) 3D 판정 — 누르면 그 keyframe 으로 가고 이 물체를 자동으로 강조한다 (M4)
+  h += `<div class="track"><b style="color:var(--ink)">3D ${KFL} 판정</b> <span class="lv">score_kf_gt.csv · 누르면 그 ${KFL} 로 이동</span>`;
+  if (!j.length) h += `<p class="hint">이 물체에 대한 ${KFL} 판정 행이 없습니다.</p>`;
+  for (const st of statusOrder) {
+    const rows = byStatus[st], key = 'kfj_' + st, more = state.moreMiss[key], use = more ? rows : rows.slice(0, 8);
+    h += `<div class="inst"><div class="gh" title="${esc(k3desc(st))}"><span>${esc(k3label(st))}</span><span>${rows.length}</span></div>` +
+      use.map(x => {
+        const mates = (x.mates || []).map(m => D.objects[m]).filter(Boolean);
+        const marks = x.st === 'split' ? (x.frags || []) : (x.st === 'merged' && x.obs >= 0 ? [x.obs] : []);
+        const extra = x.st === 'merged' && mates.length ? `<span class="lv">같은 예측 ${x.obs} 에 함께 묶임</span>`
+          : x.st === 'split' && (x.nfrag || x.frags) ? `<span class="lv">조각 ${x.nfrag || (x.frags || []).length}개${(x.frags || []).length ? ' (' + x.frags.join(', ') + ')' : ''}</span>`
+          : x.st === 'not_present' ? `<span class="lv">라벨 5m 안 ${x.px || 0}px</span>` : '';
+        const d2 = x.st2 && x.st2 !== x.st ? `<span class="lv" title="같은 ${KFL} 의 2D 판정">2D ${esc(g2label(x.st2))}${x.iou2 >= 0 ? ' IoU ' + x.iou2.toFixed(2) : ''}</span>` : '';
+        return `<button data-jump="${x.kf}" data-marks="${marks.join(',')}" title="${esc(k3desc(x.st))}">` +
+          `<span>${esc(kfName(x.kf))} ${d2}</span><span class="right">${extra}</span></button>` +
+          (mates.length ? `<div class="chips">` + mates.map((m, mi) => `<button data-mate="${x.mates[mi]}" data-matekf="${x.kf}">${esc(objName(m))} · ${esc(LABEL[m.status])}</button>`).join('') + `</div>` : '');
+      }).join('') +
+      (rows.length > use.length || more ? `<button class="act" data-more="${esc(key)}" style="margin-top:4px">${more ? '접기' : `나머지 ${rows.length - use.length}개 더 보기`}</button>` : '') + `</div>`;
+  }
+  if (j.some(x => x.st2 && x.st2 !== x.st)) h += `<p class="hint">${esc(D.cmp_note || '')}</p>`;
+  if (j.some(x => (x.frags || []).length || (x.st === 'merged' && x.obs >= 0))) h += `<p class="hint">조각·과소분할 행을 누르면 그 예측 마스크를 이미지에 점선 상자로 표시합니다.</p>`;
+  h += `</div>`;
+
+  h += `<div class="eps">${o.eps.map(e => `<div><span>GT 트랙 ${e.ep} · ${FRL} ${e.first}–${e.last}</span><span>${esc(e.status)} · 최대 ${e.px}px</span></div>`).join('')}</div>`;
+  if (o.tracks && o.tracks.length) {
+    h += `<div class="track"><b style="color:var(--ink)">추적</b> — GT 트랙이 있는(present) ${KFL} 마다 칸 하나 (채움 = 매칭 · 빈칸 = 미매칭 · 흰 세로선 = IDSW(ID switch)). 칸을 누르면 그 ${KFL} 로 갑니다.` +
+      o.tracks.map(t => { let last = null; return `<div class="strip">` + t.ids.map((id, i2) => {
+        const cls = id < 0 ? 'miss' : (last != null && id !== last ? 'sw2' : ''); if (id >= 0) last = id;
+        return `<button class="${cls}" data-kfcell="${t.kfs[i2]}" title="${esc(kfName(t.kfs[i2]))} · ${id < 0 ? '매칭 없음' : '예측 ID ' + id}"></button>`;
+      }).join('') + `</div><div>예측 ID(predicted ID) ${[...new Set(t.ids.filter(x => x >= 0))].join(' → ') || '없음'} · IDSW ${t.switches}회</div>`; }).join('') + `</div>`;
+  }
+  h += (o.best_kf >= 0 ? `<img src="kf/${String(D.kfs[o.best_kf].frame).padStart(6, '0')}.jpg" data-kf="${o.best_kf}" title="${KFL} 중 가장 크게 보인 순간 — 누르면 이동">`
+    : `<p class="hint">이 물체가 보이는 동안 publish 된 ${KFL} 이 없습니다.</p>`);
+  return h + `</section>`;
+}
+
+function kfSide() {
+  const k = D.kfs[state.kf]; if (!k) return '';
+  const g = k.gt || {}, s3 = k.s3 || {}, pr = k.pred || {};
+  const STYLE = { tp: ['solid', C.detected], split: ['long', C.detected], low_iou: ['short', C.detected], merged: ['solid', C.merged], missed: ['solid', C.missed] };
+  const nIneligible = k.inst.filter(x => !x.el).length;
+  const list = kfList();
+  let h = `<section><h2>${esc(kfName(state.kf))} · 목록에서 ${Math.max(list.indexOf(state.kf) + 1, 0)}/${list.length}</h2>` +
+    `<div class="legend"><span class="note">선 = GT 윤곽(어두운 테두리 위에 그립니다) · 면 = frontend 마스크 — 같은 색이라도 모양이 다르면 다른 뜻입니다</span>` +
+    Object.keys(STYLE).map(s => `<span class="sw ${STYLE[s][0]}" style="color:${STYLE[s][1]}"></span><span>${esc(g2label(s))}</span><span class="n">${g[s] || 0}</span>`).join('') +
+    `<span class="sw thin" style="color:${C.ineligible}"></span><span>${esc(LABEL.ineligible)} <span class="lv">(2D 채점 대상 아님)</span></span><span class="n">${nIneligible}</span>` +
+    `</div></section>` +
+    `<section><h2>frontend 마스크 (예측)</h2><div class="legend">` +
+    `<span class="sw fill" style="color:${C.detected}"></span><span>${esc(p2label('tp'))}</span><span class="n">${pr.tp || 0}</span>` +
+    `<span class="sw stripe" style="color:${C.detected}"></span><span>${esc(p2label('tp_small'))}</span><span class="n">${pr.tp_small || 0}</span>` +
+    `<span class="sw fill" style="color:${C.missed}"></span><span>${esc(p2label('fp'))}</span><span class="n">${pr.fp || 0}</span>` +
+    `<span class="sw box" style="color:${C.ineligible}"></span><span>${esc(p2label('ignore'))} <span class="lv">(칠하지 않음)</span></span><span class="n">${pr.ignore || 0}</span>` +
+    `</div></section>` +
+    `<section><h2>이 ${KFL} 의 3D 판정 (IoU_τ ≥ ${IOU3})</h2><div class="legend">` +
+    (Object.keys(s3).length ? Object.keys(KF3).filter(s => s3[s]).concat(Object.keys(s3).filter(s => !KF3[s]))
+      .map(s => `<span></span><span title="${esc(k3desc(s))}">${esc(k3label(s))}</span><span class="n">${s3[s]}</span>`).join('')
+      : `<span class="note">이 ${KFL} 에는 3D 판정 행이 없습니다.</span>`) + `</div></section>`;
+
+  // keyframe 필터 (M3)
+  const opt = (sel, cur, items, none) => `<select id="${sel}"><option value="">${none}</option>` +
+    items.map(([v, t, n]) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(t)} (${n})</option>`).join('') + `</select>`;
+  const n2 = c => D.kfs.filter(x => (x.gt || {})[c] > 0).length, n3 = c => D.kfs.filter(x => (x.s3 || {})[c] > 0).length;
+  h += `<section><h2>${KFL} 고르기</h2><div class="toggles">` +
+    `<label class="stack">2D 상태 ${opt('f2', state.kff.st2, Object.keys(G2).map(c => [c, g2label(c), n2(c)]), '전체')}</label>` +
+    `<label class="stack">3D 상태 ${opt('f3', state.kff.st3, Object.keys(KF3).map(c => [c, k3label(c), n3(c)]), '전체')}</label>` +
+    `<div class="row2">맞는 ${KFL} <b>${list.length}</b> / ${D.kfs.length}` +
+    (state.kff.st2 || state.kff.st3 ? ` <button class="act" id="clearf">필터 지우기</button>` : '') + `</div></div></section>`;
+
+  // 인스턴스 목록
+  const LV = ['Easy', 'Moderate', 'Hard', '등급 밖'];
+  const sorted = k.inst.map((it, i) => ({ it, i })).sort((a, b) =>
+    (a.it.el ? 0 : 1) - (b.it.el ? 0 : 1) || ((a.it.st === 'tp') - (b.it.st === 'tp')) || b.it.px - a.it.px);
+  h += `<section><h2>이 ${KFL} 의 GT 인스턴스 (${k.inst.length})</h2><div class="inst">` +
+    sorted.map(({ it, i }) => {
+      const o = D.objects[it.obj] || { id: '?', kind: 'static', status: 'ineligible' };
+      const st = STYLE[it.st] || ['solid', C.ineligible];
+      const lv = it.lv >= 0 ? `<span class="lv" title="KITTI 기준 변형 등급 · 잘림 ${it.tr < 0 ? '–' : Math.round(it.tr * 100) + '%'} · 가림 ${it.oc < 0 ? '–' : Math.round(it.oc * 100) + '%'} · 최소 bbox 변 ${it.md < 0 ? '–' : it.md + 'px'}">${LV[it.lv] || ''}</span>` : '';
+      const s3t = it.s3 ? `<span class="lv" title="같은 ${KFL} 의 3D 판정 — ${esc(k3desc(it.s3))}">3D ${esc(k3label(it.s3))}</span>` : '';
+      const mate = it.st === 'merged' && it.bp >= 0
+        ? k.inst.filter(x => x !== it && x.bp === it.bp && x.el).map(x => D.objects[x.obj]).filter(Boolean) : [];
+      const diff = it.el && it.s3 && it.s3 !== it.st;          // 같은 (kf, GT) 인데 2D 와 3D 판정이 다름
+      return `<button data-inst="${i}" data-obj="${it.obj}" aria-pressed="${state.sel === it.obj}">` +
+        `<span>${esc(objName(o))} ${lv} ${s3t}${diff ? ' <span class="lv" title="누르면 아래에 이유가 나옵니다">2D↔3D 다름</span>' : ''}</span>` +
+        `<span class="right" style="color:${it.el ? st[1] : C.ineligible}">${esc(it.el ? g2label(it.st) : LABEL.ineligible)} <span class="lv">IoU ${it.iou.toFixed(2)}</span></span></button>` +
+        (diff && state.sel === it.obj ? `<p class="hint" style="margin:2px 0 6px 6px">${esc(D.cmp_note || '')}</p>` : '') +
+        (mate.length ? `<div class="chips">${mate.map((m, mi) => `<button data-mate="${k.inst.filter(x => x !== it && x.bp === it.bp && x.el)[mi].obj}" data-matekf="${state.kf}">같은 예측: ${esc(objName(m))}</button>`).join('')}</div>` : '');
+    }).join('') +
+    `</div><p class="hint">줄에 마우스를 올리면 이미지에 흰 상자가 뜨고, 누르면 그 물체를 골라 계속 강조합니다. ← → 로 ${KFL} 이동. 맵에서 보려면 고른 뒤 '맵' 탭.</p></section>`;
+  return h;
+}
+
+function renderSide() {
+  const side = $('side');
+  side.innerHTML = state.tab === 'map' ? mapSide() : kfSide();
+  // 공통 조작
+  side.querySelectorAll('[data-more]').forEach(b => b.onclick = () => { const k = b.dataset.more; state.moreMiss[k] = !state.moreMiss[k]; renderSide(); });
+  side.querySelectorAll('[data-jump]').forEach(b => b.onclick = () =>
+    goKf(+b.dataset.jump, state.sel, (b.dataset.marks || '').split(',').filter(Boolean).map(Number)));
+  side.querySelectorAll('[data-kfcell]').forEach(b => b.onclick = () => goKf(+b.dataset.kfcell, state.sel));
+  side.querySelectorAll('[data-mate]').forEach(b => b.onclick = e => { e.stopPropagation(); goKf(+b.dataset.matekf, +b.dataset.mate); });
+  const img = side.querySelector('img[data-kf]'); if (img) img.onclick = () => goKf(+img.dataset.kf, state.sel);
+  if (state.tab === 'map') {
+    const rsel = $('reason'); if (rsel) rsel.onchange = () => { state.reason = rsel.value; buildObjects(); renderSide(); draw(); };
+    const hide = $('hideoff'); if (hide) hide.onchange = () => { state.hide = hide.checked; draw(); };
+    side.querySelectorAll('input[data-s],input[data-t]').forEach(inp => inp.onchange = () => {
+      const k = inp.dataset.s || inp.dataset.t; state.show[k] = inp.checked;
+      if (inp.dataset.s || k === 'human' || k === 'static' || k === 'big') buildObjects();
+      renderSide(); draw();
+    });
+    side.querySelectorAll('[data-miss]').forEach(b => b.onclick = () => selectObj(+b.dataset.miss, true));
+    const q = $('objq');
+    if (q) {
+      q.oninput = () => { state.q = q.value; renderSide(); const n = $('objq'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } };
+      const qc = $('objqclear'); if (qc) qc.onclick = () => { state.q = ''; renderSide(); };
+    }
+  } else {
+    const f2 = $('f2'), f3 = $('f3'), cf = $('clearf');
+    if (f2) f2.onchange = () => { state.kff.st2 = f2.value; afterFilter(); };
+    if (f3) f3.onchange = () => { state.kff.st3 = f3.value; afterFilter(); };
+    if (cf) cf.onclick = () => { state.kff = { st2: '', st3: '' }; afterFilter(); };
+    const k = D.kfs[state.kf];
+    let pressed = null;
+    side.querySelectorAll('button[data-inst]').forEach(b => {
+      const it = k.inst[+b.dataset.inst];
+      if (state.sel >= 0 && it.obj === state.sel && !pressed) pressed = b;
+      b.onmouseenter = () => { hoverBox = (k.boxes || {})[it.ep] || null; hoverName = `${objName(D.objects[it.obj] || { id: it.ep, kind: 'static' })}`; highlight(); };
+      b.onmouseleave = () => { hoverBox = null; hoverName = ''; highlight(); };
+      b.onclick = () => { if (+b.dataset.obj >= 0) selectObj(+b.dataset.obj, false); };
+    });
+    const tag = `${state.kf}:${state.sel}`;                    // 고른 줄이 바뀔 때만 스크롤 (사람이 움직인 위치를 뺏지 않게)
+    if (pressed && lastScroll !== tag) { lastScroll = tag; pressed.scrollIntoView({ block: 'center' }); }
+  }
+}
+function afterFilter() {
+  const list = kfList();
+  if (list.length && !list.includes(state.kf)) state.kf = list[0];
+  showKf(state.kf); syncHash();
+}
+
+// ---------------- URL 해시 (공유용 링크) · 시퀀스 전환 · 오래됨 경고
+let applying = false;
+function syncHash() {
+  if (applying) return;
+  const h = LIB.buildHash({ seq: D.seq, tab: state.tab, obj: state.sel, kf: state.kf });
+  if (location.hash !== h) history.replaceState(null, '', h);
+}
+function applyHash() {
+  const h = LIB.parseHash(location.hash);
+  if (h.seq && h.seq !== D.seq) { location.href = `../uHumans2_${h.seq}/index.html` + LIB.buildHash({ tab: h.tab, obj: h.obj, kf: h.kf }); return; }
+  applying = true;
+  if (h.obj != null && h.obj >= 0 && h.obj < D.objects.length) state.sel = h.obj;
+  if (h.kf != null && h.kf >= 0 && h.kf < D.kfs.length) state.kf = h.kf;
+  applying = false;
+  setTab(h.tab === 'kf' ? 'kf' : 'map');
+}
+addEventListener('hashchange', () => applyHash());
+
+function setStale(st, src) {
+  const box = $('stale');
+  if (!st) { box.innerHTML = ''; return; }
+  if (st.state === 'stale') {
+    box.innerHTML = `<b class="warn" title="${esc(st.msg)}${src ? ' (' + src + ')' : ''}">⚠ 채점 결과가 이 뷰어보다 새것입니다 — <code>eval.sh viewer ${esc(D.seq)}</code></b>`;
+  } else if (st.state === 'fresh') {
+    box.innerHTML = `<span class="ok" title="${esc(st.msg)}${src ? ' (' + src + ')' : ''}">채점 결과와 같은 입력</span>`;
+  } else {
+    box.innerHTML = `<span class="ok" title="${esc(st.msg)}">최신 여부 확인 못 함</span>`;
+  }
+}
+function fillSeqs(idx) {
+  const sel = $('seqsel'), seqs = (idx && idx.seqs) || [];
+  sel.innerHTML = (seqs.length ? seqs : [{ seq: D.seq, name: D.seq_name || D.seq, dir: `uHumans2_${D.seq}` }])
+    .map(s => `<option value="${esc(s.dir)}" ${s.seq === D.seq ? 'selected' : ''}>${esc(s.name || s.seq)}</option>`).join('');
+  sel.onchange = () => { location.href = `../${sel.value}/index.html` + LIB.buildHash({ tab: state.tab }); };
+  const me = seqs.find(s => s.seq === D.seq);
+  setStale(me && me.stale ? me.stale : LIB.staleState(D.source, null), 'index.js');
+}
+const sc = document.createElement('script');
+sc.src = '../index.js';
+sc.onload = () => fillSeqs(window.FB_INDEX);
+sc.onerror = () => fillSeqs(null);
+document.head.appendChild(sc);
+// http 로 열었으면 summary.json 을 직접 읽어 최신 여부를 다시 본다 (file:// 은 브라우저가 막으므로 index.js 기준)
+if (LIB.canReadSummary(location.protocol, location.pathname)) {   // 뷰어 폴더만 서버로 열었으면 밖의 summary.json 을 부르지 않는다 (404 방지)
+  fetch('../../summary.json', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(j => {
+    const e = j && j[D.seq] && j[D.seq].report_steps;
+    if (!e) return;
+    const steps = {}; for (const [k, v] of Object.entries(e)) steps[k] = v && v.key;
+    setStale(LIB.staleState(D.source, { steps }), 'summary.json');
+  }).catch(() => {});
+}
+
+// ---------------- 시작
+applyHash();
+if (!validView(state.view)) needFit();
+})();
+</script>
+</body>
+</html>
